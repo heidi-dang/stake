@@ -3190,6 +3190,10 @@ def _run_simulation_internal(data):
             state['current_win_streak'] += 1
             state['current_lose_streak'] = 0
             
+            # HYBRID WIN HANDLER FOR SIMULATION
+            if strat == 'hybrid_recovery' and state.get('hybrid_recovery_deficit', 0.0) > 0.000001:
+                state['hybrid_recovery_deficit'] = 0.0
+                
             # SIM BASIC WIN LOGIC
             if strat == 'basic':
                 win_action = dict(data).get('basic_on_win', 'reset')
