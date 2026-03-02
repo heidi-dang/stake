@@ -227,7 +227,6 @@ class Stake:
 
     def dice_roll(self, amount: float, target: float, condition: str, currency: str, identifier: str = None) -> dict:
         # condition: "above" or "below"
-        # Map our internal 'over'/'under' if needed, but the caller should handle this
         json_data = {
             'query': 'mutation DiceRoll($amount: Float!, $target: Float!, $condition: CasinoGameDiceConditionEnum!, $currency: CurrencyEnum!, $identifier: String) {\n  diceRoll(amount: $amount, target: $target, condition: $condition, currency: $currency, identifier: $identifier) {\n    id\n    active\n    payout\n    payoutMultiplier\n    amount\n    currency\n    game\n    state {\n      ... on CasinoGameDice {\n        result\n        target\n        condition\n      }\n    }\n  }\n}',
             'variables': {
@@ -240,3 +239,46 @@ class Stake:
         }
         response = self.session.post(ENDPOINT, headers=self.headers, json=json_data)
         return response.json()
+
+    def limbo_roll(self, amount: float, multiplier: float, currency: str, identifier: str = None) -> dict:
+        json_data = {
+            'query': 'mutation LimboBet($amount: Float!, $multiplierTarget: Float!, $currency: CurrencyEnum!, $identifier: String) {\n  limboBet(amount: $amount, multiplierTarget: $multiplierTarget, currency: $currency, identifier: $identifier) {\n    id\n    active\n    payout\n    payoutMultiplier\n    amount\n    currency\n    game\n    state {\n      ... on CasinoGameLimbo {\n        result\n        multiplierTarget\n      }\n    }\n  }\n}',
+            'variables': {
+                'amount': amount,
+                'multiplierTarget': multiplier,
+                'currency': currency,
+                'identifier': identifier
+            },
+        }
+        response = self.session.post(ENDPOINT, headers=self.headers, json=json_data)
+        return response.json()
+
+    def plinko_roll(self, amount: float, risk: str, rows: int, currency: str, identifier: str = None) -> dict:
+        # risk: "low", "medium", "high"
+        # rows: 8 to 16
+        json_data = {
+            'query': 'mutation PlinkoBet($amount: Float!, $risk: CasinoGamePlinkoRiskEnum!, $rows: Int!, $currency: CurrencyEnum!, $identifier: String) {\n  plinkoBet(amount: $amount, risk: $risk, rows: $rows, currency: $currency, identifier: $identifier) {\n    id\n    active\n    payout\n    payoutMultiplier\n    amount\n    currency\n    game\n    state {\n      ... on CasinoGamePlinko {\n        result\n        risk\n        rows\n      }\n    }\n  }\n}',
+            'variables': {
+                'amount': amount,
+                'risk': risk.lower(),
+                'rows': rows,
+                'currency': currency,
+                'identifier': identifier
+            },
+        }
+        response = self.session.post(ENDPOINT, headers=self.headers, json=json_data)
+        return response.json()
+
+    def keno_roll(self, amount: float, numbers: list, currency: str, identifier: str = None) -> dict:
+        json_data = {
+            'query': 'mutation KenoBet($amount: Float!, $numbers: [Int!]!, $currency: CurrencyEnum!, $identifier: String) {\n  kenoBet(amount: $amount, numbers: $numbers, currency: $currency, identifier: $identifier) {\n    id\n    active\n    payout\n    payoutMultiplier\n    amount\n    currency\n    game\n    state {\n      ... on CasinoGameKeno {\n        result\n        numbers\n      }\n    }\n  }\n}',
+            'variables': {
+                'amount': amount,
+                'numbers': numbers,
+                'currency': currency,
+                'identifier': identifier
+            },
+        }
+        response = self.session.post(ENDPOINT, headers=self.headers, json=json_data)
+        return response.json()
+

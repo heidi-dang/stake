@@ -2030,43 +2030,81 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 </div>
             </div>
 
-            <!-- Coming Soon Cards -->
+            <!-- Limbo Card -->
             <div class="grid-stack-item" gs-x="4" gs-y="0" gs-w="4" gs-h="auto">
                 <div class="grid-stack-item-content">
                     <div class="gs-drag-handle"></div>
-                    <div class="panel" style="opacity:0.6; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                        <h3 style="border:none; margin:0; color:var(--secondary);">LIMBO</h3>
-                        <div class="badge PAUSED" style="margin-top:1rem;">API Integration Pending</div>
+                    <div class="panel">
+                        <h3 style="color:var(--primary); margin-top:0;">LIMBO</h3>
+                        <div class="form-group">
+                            <label>Bet Amount</label>
+                            <input type="number" id="limbo_manual_bet" step="0.00000001" value="0.00000001">
+                        </div>
+                        <div class="form-group">
+                            <label>Target Multiplier</label>
+                            <input type="number" id="limbo_manual_target" step="0.01" value="2.00">
+                        </div>
+                        <button class="btn-start" style="width:100%; margin-top:1rem;" onclick="playManualGame('limbo')">PLACE BET</button>
+                        <div id="limbo_manual_result" style="margin-top:1rem; font-weight:bold; text-align:center;"></div>
                     </div>
                 </div>
             </div>
 
+            <!-- Plinko Card -->
             <div class="grid-stack-item" gs-x="8" gs-y="0" gs-w="4" gs-h="auto">
                 <div class="grid-stack-item-content">
                     <div class="gs-drag-handle"></div>
-                    <div class="panel" style="opacity:0.6; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                        <h3 style="border:none; margin:0; color:var(--secondary);">MINES</h3>
-                        <div class="badge PAUSED" style="margin-top:1rem;">API Integration Pending</div>
+                    <div class="panel">
+                        <h3 style="color:var(--primary); margin-top:0;">PLINKO</h3>
+                        <div class="form-group">
+                            <label>Bet Amount</label>
+                            <input type="number" id="plinko_manual_bet" step="0.00000001" value="0.00000001">
+                        </div>
+                        <div class="form-group">
+                            <label>Risk</label>
+                            <select id="plinko_manual_risk">
+                                <option value="low">Low</option>
+                                <option value="medium" selected>Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Rows</label>
+                            <input type="number" id="plinko_manual_rows" min="8" max="16" value="12">
+                        </div>
+                        <button class="btn-start" style="width:100%; margin-top:1rem;" onclick="playManualGame('plinko')">DROP BALL</button>
+                        <div id="plinko_manual_result" style="margin-top:1rem; font-weight:bold; text-align:center;"></div>
                     </div>
                 </div>
             </div>
             
+            <!-- Keno Card -->
             <div class="grid-stack-item" gs-x="0" gs-y="4" gs-w="4" gs-h="auto">
                 <div class="grid-stack-item-content">
                     <div class="gs-drag-handle"></div>
-                    <div class="panel" style="opacity:0.6; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                        <h3 style="border:none; margin:0; color:var(--secondary);">PLINKO</h3>
-                        <div class="badge PAUSED" style="margin-top:1rem;">API Integration Pending</div>
+                    <div class="panel">
+                        <h3 style="color:var(--primary); margin-top:0;">KENO</h3>
+                        <div class="form-group">
+                            <label>Bet Amount</label>
+                            <input type="number" id="keno_manual_bet" step="0.00000001" value="0.00000001">
+                        </div>
+                        <div class="form-group">
+                            <label>Numbers (1-40, comma separated)</label>
+                            <input type="text" id="keno_manual_numbers" placeholder="e.g. 1, 5, 12, 24, 33">
+                        </div>
+                        <button class="btn-start" style="width:100%; margin-top:1rem;" onclick="playManualGame('keno')">PLAY KENO</button>
+                        <div id="keno_manual_result" style="margin-top:1rem; font-weight:bold; text-align:center;"></div>
                     </div>
                 </div>
             </div>
             
+            <!-- Mines Card (Still Pending due to complex UI needed) -->
             <div class="grid-stack-item" gs-x="4" gs-y="4" gs-w="4" gs-h="auto">
                 <div class="grid-stack-item-content">
                     <div class="gs-drag-handle"></div>
                     <div class="panel" style="opacity:0.6; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                        <h3 style="border:none; margin:0; color:var(--secondary);">KENO</h3>
-                        <div class="badge PAUSED" style="margin-top:1rem;">API Integration Pending</div>
+                        <h3 style="border:none; margin:0; color:var(--secondary);">MINES</h3>
+                        <div class="badge PAUSED" style="margin-top:1rem;">Multi-step UI Pending</div>
                     </div>
                 </div>
             </div>
@@ -2787,6 +2825,71 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             });
         }
 
+        function playManualGame(game) {
+            let amount, payload = { game: game };
+            let resDiv = document.getElementById(game + '_manual_result');
+            
+            if (game === 'dice') {
+                amount = parseFloat(document.getElementById('dice_manual_bet').value);
+                payload.amount = amount;
+                payload.target = parseFloat(document.getElementById('dice_manual_target').value);
+                payload.condition = document.getElementById('dice_manual_condition').value;
+            } else if (game === 'limbo') {
+                amount = parseFloat(document.getElementById('limbo_manual_bet').value);
+                payload.amount = amount;
+                payload.multiplier = parseFloat(document.getElementById('limbo_manual_target').value);
+            } else if (game === 'plinko') {
+                amount = parseFloat(document.getElementById('plinko_manual_bet').value);
+                payload.amount = amount;
+                payload.risk = document.getElementById('plinko_manual_risk').value;
+                payload.rows = parseInt(document.getElementById('plinko_manual_rows').value);
+            } else if (game === 'keno') {
+                amount = parseFloat(document.getElementById('keno_manual_bet').value);
+                payload.amount = amount;
+                let numsStr = document.getElementById('keno_manual_numbers').value;
+                payload.numbers = numsStr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+                if (payload.numbers.length === 0) {
+                    resDiv.style.color = 'var(--danger)';
+                    resDiv.innerHTML = 'Select at least one number.';
+                    return;
+                }
+            } else {
+                return;
+            }
+            
+            resDiv.style.color = 'var(--secondary)';
+            resDiv.innerHTML = 'Processing...';
+            
+            fetch('/api/manual_bet', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + getCookie('gork_jwt')
+                },
+                body: JSON.stringify(payload)
+            }).then(r => r.json()).then(data => {
+                if (data.error) {
+                    resDiv.style.color = 'var(--danger)';
+                    resDiv.innerHTML = 'Error: ' + data.error;
+                    return;
+                }
+                const isWin = data.payout > 0;
+                resDiv.style.color = isWin ? 'var(--success)' : 'var(--danger)';
+                resDiv.innerHTML = isWin ? `WON +${(data.payout - data.amount).toFixed(8)}! (x${data.multiplier})` : `LOST -${data.amount.toFixed(8)}`;
+                
+                // Give it a brief pulse
+                resDiv.style.animation = 'none';
+                resDiv.offsetHeight; // trigger reflow
+                resDiv.style.animation = 'pulse 0.5s';
+                
+                // Update health to poll new balance
+                checkHealth();
+            }).catch(e => {
+                resDiv.style.color = 'var(--danger)';
+                resDiv.innerHTML = 'Error communicating with server.';
+            });
+        }
+
         async function predictDragon() {
             const s_seed = document.getElementById('dt_server_seed').value;
             const c_seed = document.getElementById('dt_client_seed').value;
@@ -3452,6 +3555,69 @@ def manual_bet():
                 return jsonify({'error': res['errors'][0]['message']}), 400
             if 'data' in res and 'diceRoll' in res['data']:
                 roll = res['data']['diceRoll']
+                return jsonify({
+                    'success': True,
+                    'payout': roll['payout'],
+                    'multiplier': roll['payoutMultiplier'],
+                    'amount': roll['amount']
+                })
+            return jsonify({'error': 'Invalid API response format.'}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    elif game == 'limbo':
+        multiplier = float(data.get('multiplier', 2.0))
+        currency = state['wallet']['active_coin']
+        stake = Stake(api_key)
+        try:
+            res = stake.limbo_roll(amount, multiplier, currency)
+            if 'errors' in res:
+                return jsonify({'error': res['errors'][0]['message']}), 400
+            if 'data' in res and 'limboBet' in res['data']:
+                roll = res['data']['limboBet']
+                return jsonify({
+                    'success': True,
+                    'payout': roll['payout'],
+                    'multiplier': roll['payoutMultiplier'],
+                    'amount': roll['amount']
+                })
+            return jsonify({'error': 'Invalid API response format.'}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    elif game == 'plinko':
+        risk = data.get('risk', 'medium')
+        rows = int(data.get('rows', 12))
+        currency = state['wallet']['active_coin']
+        stake = Stake(api_key)
+        try:
+            res = stake.plinko_roll(amount, risk, rows, currency)
+            if 'errors' in res:
+                return jsonify({'error': res['errors'][0]['message']}), 400
+            if 'data' in res and 'plinkoBet' in res['data']:
+                roll = res['data']['plinkoBet']
+                return jsonify({
+                    'success': True,
+                    'payout': roll['payout'],
+                    'multiplier': roll['payoutMultiplier'],
+                    'amount': roll['amount']
+                })
+            return jsonify({'error': 'Invalid API response format.'}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+    elif game == 'keno':
+        numbers = data.get('numbers', [])
+        if not numbers:
+            return jsonify({'error': 'No numbers selected for Keno.'}), 400
+        currency = state['wallet']['active_coin']
+        stake = Stake(api_key)
+        try:
+            res = stake.keno_roll(amount, numbers, currency)
+            if 'errors' in res:
+                return jsonify({'error': res['errors'][0]['message']}), 400
+            if 'data' in res and 'kenoBet' in res['data']:
+                roll = res['data']['kenoBet']
                 return jsonify({
                     'success': True,
                     'payout': roll['payout'],
