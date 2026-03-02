@@ -1,0 +1,1 @@
+export default { version: '20.7.0' };

@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Gork — v2.0</title>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.2/ace.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0b0c10;
+            --surface: #1f2833;
+            --primary: #66fcf1;
+            --secondary: #45a29e;
+            --text: #c5c6c7;
+            --danger: #ff4757;
+            --success: #2ed573;
+        }
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background: var(--bg); color: var(--text); 
+            margin: 0; padding: 2rem; 
+        }
+        h1 { 
+            color: var(--primary); 
+            font-family: 'Roboto Mono', monospace; 
+            font-size: 2.2rem;
+            text-shadow: 0 0 10px rgba(102, 252, 241, 0.3);
+            margin-bottom: 2rem;
+        }
+        
+        /* Tabs */
+        .tabs { display: flex; border-bottom: 1px solid rgba(102, 252, 241, 0.3); margin-bottom: 2rem; }
+        .tab-btn { 
+            background: transparent; border-radius: 0; box-shadow: none; font-size: 0.9rem;
+            padding: 1rem 1.5rem; cursor: pointer; color: var(--text); 
+            font-weight: 600; letter-spacing: 1px; transition: 0.2s;
+            border-bottom: 3px solid transparent; 
+        }
+        .tab-btn:hover { color: var(--primary); }
+        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+        
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        
+        .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
+        .panel { 
+            background: var(--surface); 
+            padding: 1.5rem; 
+            border-radius: 12px; 
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            border: 1px solid rgba(102, 252, 241, 0.1);
+            transition: transform 0.2s;
+        }
+        .panel:hover { border-color: rgba(102, 252, 241, 0.3); }
+        h3 { color: #fff; margin-top: 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem; }
+        
+        .stat-row { display: flex; justify-content: space-between; align-items: center; margin: 0.8rem 0; font-family: 'Roboto Mono', monospace;}
+        .stat-value { color: var(--primary); font-weight: 600; font-size: 1.1rem; }
+        
+        .form-group { margin-bottom: 1rem; }
+        label { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--secondary); margin-bottom: 0.4rem; }
+        input, select { 
+            width: 100%; padding: 0.6rem; 
+            background: #141a22; color: #e0e0e0; 
+            border: 1px solid rgba(102,252,241,0.2); border-radius: 6px; 
+            font-family: 'Roboto Mono', monospace;
+            box-sizing: border-box;
+            transition: all 0.2s;
+            appearance: none; -webkit-appearance: none;
+        }
+        select {
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2366fcf1'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.75rem center;
+            padding-right: 2rem;
+        }
+        option, optgroup {
+            background: #1f2833;
+            color: #e0e0e0;
+        }
+        input:focus, select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 8px rgba(102,252,241,0.2); }
+        
+        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; }
+        
+        button { 
+            padding: 0.8rem 1.6rem; 
+            border: none; border-radius: 6px; 
+            font-family: 'Inter', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+            cursor: pointer; transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        .btn-start { background: var(--primary); color: var(--bg); }
+        .btn-start:hover { background: #fff; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,252,241,0.4); }
+        .btn-stop { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+        .btn-stop:hover { background: rgba(255, 71, 87, 0.1); transform: translateY(-2px); }
+        
+        .badge { padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
+        .badge.RUNNING { background: rgba(46, 213, 115, 0.2); color: var(--success); border: 1px solid var(--success); text-shadow: 0 0 5px var(--success); }
+        .badge.PAUSED { background: rgba(255, 71, 87, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+        
+        #logs { font-family: 'Roboto Mono', monospace; font-size: 0.8rem; height: 160px; overflow-y: auto; color: var(--secondary); }
+        
+        /* USD helpers */
+        .input-with-usd { display: flex; gap: 0.5rem; align-items: center; }
+        .input-with-usd input[type="number"] { flex: 1; }
+        .input-usd-helper { width: 95px !important; color: #f1c40f !important; border-color: rgba(241, 196, 15, 0.3) !important; padding: 0.4rem !important; font-size: 0.85rem !important; }
+        
+        /* Specific panels */
+        .strat-panel { display: none; }
+        #gork_config { display: block; }
+
+        /* Simulator Dashboard */
+        .sim-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
+        .sim-stat { 
+            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
+            padding: 1.5rem; text-align: center; border-radius: 8px;
+        }
+        .sim-val { font-size: 1.8rem; font-weight: bold; color: var(--primary); margin: 0.5rem 0; font-family: 'Roboto Mono', monospace; }
+        .sim-title { font-size: 0.8rem; text-transform: uppercase; color: var(--secondary); letter-spacing: 1px;}
+        .sim-danger { color: #ff4757; }
+        .sim-success { color: #2ed573; }
+        
+        /* AI Chat Styles */
+        .ai-msg { margin-bottom: 0.8rem; padding: 0.5rem; border-radius: 4px; }
+        .ai-msg-user { background: rgba(102, 252, 241, 0.1); border-left: 2px solid var(--primary); }
+        .ai-msg-bot { background: rgba(255, 255, 255, 0.05); border-left: 2px solid var(--secondary); }
+        .ai-cmd { color: var(--primary); font-family: monospace; font-weight: bold; }
+
+        /* Tooltips */
+        .tooltip {
+            display: inline-block; cursor: pointer;
+            background: rgba(102, 252, 241, 0.2); color: var(--primary);
+            width: 16px; height: 16px; border-radius: 50%;
+            text-align: center; line-height: 16px; font-size: 0.7rem; font-weight: bold;
+            margin-left: 6px; position: relative;
+        }
+        .tooltip .tooltiptext {
+            visibility: hidden; width: 220px; background-color: var(--surface);
+            color: #fff; text-align: left; border-radius: 6px; padding: 0.8rem;
+            position: absolute; z-index: 10; bottom: 125%; left: 50%;
+            margin-left: -110px; opacity: 0; transition: opacity 0.3s;
+            border: 1px solid var(--primary); font-size: 0.75rem; text-transform: none; font-weight: normal; letter-spacing: normal;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        }
+        .tooltip .tooltiptext::after {
+            content: ""; position: absolute; top: 100%; left: 50%;
+            margin-left: -5px; border-width: 5px; border-style: solid;
+            border-color: var(--primary) transparent transparent transparent;
+        }
+        .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(102, 252, 241, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(102, 252, 241, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(102, 252, 241, 0); }
+        }
+        .running-pulse { animation: pulse 2s infinite; }
+        
+        .chart-container { position: relative; height: 60vh; width: 100%; }
+        
+        /* Settings & VIP Panels */
+        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
+        
+        /* VIP Badge & Progress */
+        .vip-card {
+            border: 2px solid rgba(102, 252, 241, 0.5);
+            border-radius: 12px; padding: 1.5rem;
+            position: relative; overflow: hidden;
+            background: linear-gradient(135deg, rgba(31,40,51,1) 0%, rgba(102,252,241,0.05) 100%);
+        }
+        .vip-badge {
+            position: absolute; right: 1.5rem; top: 1.5rem;
+            font-size: 3rem; color: var(--primary);
+            text-shadow: 0 0 20px rgba(102,252,241,0.6);
+            opacity: 0.9;
+        }
+        .progress-bg {
+            background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden; margin: 1rem 0;
+        }
+        .progress-fill {
+            background: var(--primary); height: 100%; width: 0%; transition: width 1s ease-out;
+        }
+        
+        /* Claim Rows (Rakeback, Reloads etc) */
+        .claim-row {
+            background: rgba(0,0,0,0.2); border-radius: 8px;
+            padding: 1rem; margin-top: 1rem;
+            display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        .claim-btn { background: #3498db; color: white; padding: 0.5rem 1rem; font-size: 0.8rem; border-radius: 6px; border:none; cursor:pointer;}
+        .claim-btn:hover { filter: brightness(1.2); }
+        .claim-btn.disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); cursor: not-allowed; }
+        
+        /* Wallet Toggles */
+        .wallet-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .wallet-item:last-child { border-bottom: none; }
+        .currency-label { font-weight: bold; color: #fff; width: 60px;}
+        .usd-value { color: var(--secondary); font-size: 0.9rem; margin-left: auto; margin-right: 15px;}
+        
+        /* Inputs with Button append */
+        .input-group { display: flex; gap: 0.5rem; }
+        .input-group input { flex-grow: 1; }
+        .input-group button { padding: 0.6rem 1rem; }
+        
+        /* Mobile Responsiveness (iPhone 16 Plus max approx 430px) */
+        @media (max-width: 768px) {
+            body { padding: 1rem; }
+            h1 { font-size: 1.6rem; }
+            .grid, .settings-grid { grid-template-columns: 1fr; gap: 1rem; }
+            .config-grid { grid-template-columns: 1fr; }
+            .tabs { overflow-x: auto; white-space: nowrap; padding-bottom: 0.5rem; }
+            .tab { padding: 0.8rem 1rem; font-size: 0.9rem; }
+            .panel { padding: 1rem; }
+            .stat-row { font-size: 0.9rem; }
+            .chart-container { height: 40vh; }
+            .input-group { flex-direction: column; }
+            .vip-badge { font-size: 2rem; }
+            .vip-card { padding: 1rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:9999; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+        <h1 style="margin-bottom:1rem;">SYSTEM LOCKED</h1>
+        <div style="background:var(--surface); padding:2rem; border-radius:12px; border:1px solid rgba(102, 252, 241, 0.3); text-align:center;">
+            <input type="password" id="login-pw" placeholder="Admin Password..." style="margin-bottom:1rem; padding:0.8rem; width:200px; display:block; text-align:center; background:rgba(0,0,0,0.5); border:1px solid var(--primary); color:#fff;">
+            <button class="btn-start" onclick="submitLogin()" style="width:100%;">AUTHENTICATE</button>
+            <div id="login-err" style="color:var(--danger); margin-top:1rem; display:none;">Invalid Credentials</div>
+        </div>
+    </div>
+    <script>
+        const originalFetch = window.fetch;
+        window.fetch = async function() {
+            let [resource, config] = arguments;
+            if(!config) config = {};
+            if(!config.headers) config.headers = {};
+            const token = localStorage.getItem('gork_jwt');
+            if(token) config.headers['Authorization'] = 'Bearer ' + token;
+            const response = await originalFetch(resource, config);
+            if(response.status === 401) document.getElementById('login-overlay').style.display = 'flex';
+            return response;
+        };
+        async function submitLogin() {
+            const pw = document.getElementById('login-pw').value;
+            const r = await originalFetch('/login', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({password: pw})
+            });
+            if(r.ok) {
+                const data = await r.json();
+                localStorage.setItem('gork_jwt', data.token);
+                document.getElementById('login-overlay').style.display = 'none';
+                loadSettingsData();
+            } else document.getElementById('login-err').style.display = 'block';
+        }
+        if(localStorage.getItem('gork_jwt')) document.getElementById('login-overlay').style.display = 'none';
+        else setTimeout(() => { document.getElementById('login-overlay').style.display = 'flex'; }, 100);
+    </script>
+    <h1>✧ TERMINAL_GORK</h1>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab('terminal')">TERMINAL</button>
+        <button class="tab-btn" onclick="openTab('charting')">REALTIME CHARTING</button>
+        <button class="tab-btn" onclick="openTab('simulate')">BENCHMARK / SIMULATOR</button>
+        <button class="tab-btn" onclick="openTab('editor')">STRATEGY EDITOR</button>
+        <button class="tab-btn" onclick="openTab('settings')">⚙ VIP & SETTINGS</button>
+    </div>
+
+    <!-- TERMINAL TAB -->
+    <div id="terminal" class="tab-content active">
+        <div class="grid">
+            <div class="panel" style="display:flex; flex-direction:column; justify-content:space-between;">
+            <div>
+                <h3>System Status <span id="status-badge" class="badge PAUSED" style="float:right;">PAUSED</span></h3>
+                <div class="stat-row"><span>Active Currency</span><span class="stat-value" id="currency">BTC</span></div>
+                <div class="stat-row"><span>Balance</span><span class="stat-value" id="balance">0.00000000</span></div>
+                <div class="stat-row"><span>Current Bet</span><span class="stat-value" id="bet">0.00000000</span></div>
+                <div class="stat-row"><span>Total Wagered</span><span class="stat-value" id="wagered">0.00</span></div>
+                <div class="stat-row"><span>Total Bets</span><span class="stat-value" id="bets">0</span></div>
+            </div>
+
+            <div style="margin-top:2rem; display:flex; gap:1rem;">
+                <button class="btn-start" id="startBtn" onclick="startBot()">Initialize</button>
+                <button class="btn-stop" onclick="stopBot()">Halt</button>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>Strategy Configuration</h3>
+
+            <div class="form-group">
+                <label>Strategy Subsystem</label>
+                <select id="strategy" onchange="toggleStrat()">
+                    <option value="the_gork">THE GORK (Mirror Balance)</option>
+                    <option value="ema_cross">EMA CROSSOVER (Dynamic Trade Follower)</option>
+                    <option value="die_last">DIE LAST (Win Sometimes)</option>
+                    <option value="vanish_in_volume">VANISH IN VOLUME (Die Never)</option>
+                    <option value="eternal_volume">ETERNAL VOLUME (Zero Ruin)</option>
+                    <option value="custom">CUSTOM (Your Python Code)</option>
+                </select>
+                <div id="strat-desc" style="font-size:0.8rem; color:var(--secondary); margin-top:0.5rem; background:rgba(0,0,0,0.2); padding:0.5rem; border-radius:4px; border-left:2px solid var(--primary);">
+                    Auto-scales bet size based on distance to the daily starting bankroll target.
+                </div>
+            </div>
+
+            <!-- Shared -->
+            <div class="config-grid">
+                <div class="form-group">
+                    <label>All-Time Drawdown % <span class="tooltip">!<span class="tooltiptext">Permanently halts the bot if your balance drops this far from your absolute peak.</span></span></label>
+                    <input id="all_time_cap" type="number" step="0.1" value="-8.0">
+                </div>
+                <div class="form-group">
+                    <label>Min Bet Floor <span class="tooltip">!<span class="tooltiptext">The absolute minimum bet size the algorithm is allowed to make.</span></span></label>
+                    <input id="min_bet" type="number" step="0.000001" value="0.000001">
+                </div>
+            </div>
+
+            <hr style="border:none; border-bottom:1px solid rgba(255,255,255,0.05); margin: 1rem 0;">
+
+            <!-- The Gork Panel -->
+            <div id="gork_config" class="strat-panel">
+                <div class="config-grid">
+                    <div class="form-group">
+                        <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Percentage of your current balance to risk per initial bet.</span></span></label>
+                        <div class="input-with-usd">
+                            <input id="g_base" type="number" step="0.0001" value="0.0012" oninput="syncPctToUsd('g_base')">
+                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                            <input id="g_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('g_base')">
+                        </div>
+                    </div>
+                    <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Take Profit: Stops betting and safely logs out once your session is up this % from start.</span></span></label><input id="g_tp" type="number" step="0.1" value="3.0"></div>
+                    <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Stop Loss: Halts session if drawdown exceeds this %. Protects against deep holes.</span></span></label><input id="g_sl" type="number" step="0.1" value="-1.4"></div>
+                    <div class="form-group"><label>Daily Loss Cap % <span class="tooltip">!<span class="tooltiptext">Circuit Breaker: Locks bot for 24h if you lose this much in a single day.</span></span></label><input id="g_daily" type="number" step="0.1" value="-1.8"></div>
+                </div>
+            </div>
+
+            <!-- Die Last Panel -->
+            <div id="die_last_config" class="strat-panel" style="display:none;">
+                <div class="config-grid">
+                    <div class="form-group">
+                        <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Baseline bet string. Riskier % for this strategy.</span></span></label>
+                        <div class="input-with-usd">
+                            <input id="dl_base" type="number" step="0.0001" value="0.005" oninput="syncPctToUsd('dl_base')">
+                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                            <input id="dl_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('dl_base')">
+                        </div>
+                    </div>
+                    <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Massive target. Stops betting if you hit this session profit hurdle.</span></span></label><input id="dl_tp" type="number" step="0.1" value="8.0"></div>
+                    <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Wider Stop Loss to allow volatile streaks without stopping early.</span></span></label><input id="dl_sl" type="number" step="0.1" value="-3.5"></div>
+                    <div class="form-group"><label>Daily Loss Cap % <span class="tooltip">!<span class="tooltiptext">Locks out for the day if you hit this 24H brutal maximum loss floor.</span></span></label><input id="dl_daily" type="number" step="0.1" value="-12.0"></div>
+                </div>
+            </div>
+
+            <!-- Vanish in Volume Panel -->
+            <div id="vanish_config" class="strat-panel" style="display:none;">
+                <div class="config-grid">
+                    <div class="form-group">
+                        <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Ultra-low base bet. Core of the infinite survival strategy.</span></span></label>
+                        <div class="input-with-usd">
+                            <input id="v_base" type="number" step="0.0001" value="0.0015" oninput="syncPctToUsd('v_base')">
+                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                            <input id="v_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('v_base')">
+                        </div>
+                    </div>
+                    <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Moderate +% target before resetting session safety bounds.</span></span></label><input id="v_tp" type="number" step="0.1" value="3.5"></div>
+                    <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Tight Stop Loss that scales down base bets dynamically as you hit it.</span></span></label><input id="v_sl" type="number" step="0.1" value="-2.0"></div>
+                    <div class="form-group"><label>Daily Loss Cap % <span class="tooltip">!<span class="tooltiptext">Conservative daily circuit breaker. 24 hour lockout.</span></span></label><input id="v_daily" type="number" step="0.1" value="-1.5"></div>
+                </div>
+            </div>
+
+            <!-- Eternal Volume Panel -->
+            <div id="eternal_config" class="strat-panel" style="display:none;">
+                <div class="config-grid">
+                    <div class="form-group">
+                        <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Microscopic fractional multiplier. Re-evaluates every single outcome natively.</span></span></label>
+                        <div class="input-with-usd">
+                            <input id="e_base" type="number" step="0.0001" value="0.0012" oninput="syncPctToUsd('e_base')">
+                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                            <input id="e_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('e_base')">
+                        </div>
+                    </div>
+                    <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Tame take profit percentage. Logs green immediately.</span></span></label><input id="e_tp" type="number" step="0.1" value="3.0"></div>
+                    <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Extremely tight SL %. You will exit sessions quickly during storms.</span></span></label><input id="e_sl" type="number" step="0.1" value="-1.4"></div>
+                    <div class="form-group"><label>Daily Loss Cap % <span class="tooltip">!<span class="tooltiptext">Will halt trading for 24h if you sink this far in a single day.</span></span></label><input id="e_daily" type="number" step="0.1" value="-2.5"></div>
+                </div>
+            </div>
+
+            <!-- Custom Strategy Panel -->
+            <div id="custom_config" class="strat-panel" style="display:none;">
+                <div class="config-grid">
+                    <div class="form-group">
+                        <label>Custom Strategy Base Bet % <span class="tooltip">!<span class="tooltiptext">This value can be used within your custom Python strategy as a configurable parameter.</span></span></label>
+                        <div class="input-with-usd">
+                            <input id="c_base" type="number" step="0.0001" value="0.001" oninput="syncPctToUsd('c_base')">
+                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                            <input id="c_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('c_base')">
+                        </div>
+                    </div>
+                    <div class="form-group"><label>Custom TP % <span class="tooltip">!<span class="tooltiptext">This value can be used within your custom Python strategy.</span></span></label><input id="c_tp" type="number" step="0.1" value="2.0"></div>
+                    <div class="form-group"><label>Custom SL % <span class="tooltip">!<span class="tooltiptext">This value can be used within your custom Python strategy.</span></span></label><input id="c_sl" type="number" step="0.1" value="-1.0"></div>
+                    <div class="form-group"><label>Custom Daily Cap % <span class="tooltip">!<span class="tooltiptext">This value can be used within your custom Python strategy.</span></span></label><input id="c_daily" type="number" step="0.1" value="-1.0"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+        <div class="grid" style="margin-top:2rem; grid-template-columns: 1fr 1fr;">
+            <div class="panel">
+                <h3>Execution Logs</h3>
+                <div id="logs" style="height:350px;"></div>
+            </div>
+            <div class="panel" style="display:flex; flex-direction:column;">
+                <h3>Gemini AI Controller <span class="badge" style="background:var(--primary); color:#000; font-size:0.6rem;">BETA</span></h3>
+                <div id="ai-chat" style="flex:1; min-height:280px; max-height:280px; overflow-y:auto; background:rgba(0,0,0,0.3); border-radius:4px; padding:0.8rem; margin-bottom:0.8rem; font-size:0.85rem; line-height:1.5; border:1px solid rgba(102,252,241,0.1);">
+                    <div style="color:var(--secondary); font-style:italic; opacity:0.7;">System: Ready. You can ask me to "Stop the bot", "Check P&L", or "Switch to Die Last strategy".</div>
+                </div>
+                <div style="display:flex; gap:0.5rem;">
+                    <input type="text" id="ai-input" placeholder="Command Gork via AI..." style="flex:1; border-color:rgba(102,252,241,0.3);" onkeypress="if(event.key==='Enter') sendAiMessage()">
+                    <button class="btn-start" style="padding:0.5rem 1.2rem; font-size:0.85rem;" onclick="sendAiMessage()">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- CHARTING TAB -->
+    <div id="charting" class="tab-content" style="display:none;">
+        <div class="panel">
+            <h3>Live Session Analytics</h3>
+            <div class="chart-container">
+                <div id="tvchart" style="width: 100%; height: 100%; min-height:350px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- STRATEGY EDITOR TAB -->
+    <div id="editor" class="tab-content" style="display:none;">
+        <div class="panel">
+            <h3>Python Strategy Editor</h3>
+            <div style="font-size:0.85rem; color:var(--secondary); margin-bottom:1rem;">
+                Code your own strategy logic here. Access `balance`, `state`, `log`. Set `result = bet_amount`.
+            </div>
+            <div id="ace-editor" style="height:500px; width:100%; border-radius:8px; border:1px solid rgba(102,252,241,0.2);"></div>
+            <div style="margin-top:1rem; display:flex; gap:1rem; align-items:center;">
+                <button class="btn-start" onclick="saveCustomCode()">Save Strategy</button>
+                <span id="editor-status" style="font-size:0.85rem;"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIMULATOR TAB -->
+    <div id="simulate" class="tab-content" style="display:none;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem;">
+
+            <!-- Left: Config Panel -->
+            <div style="display:flex; flex-direction:column; gap:2rem;">
+                <div class="panel">
+                    <h3 style="display:flex;justify-content:space-between;">
+                        <span>Benchmark Simulator</span>
+                        <span id="sim-status" class="badge PAUSED">AWAITING PARAMS</span>
+                    </h3>
+                    <div style="color:var(--secondary); font-size:0.82rem; margin-bottom:1rem; line-height:1.5; border-left:2px solid var(--primary); padding-left:0.8rem;">
+                        Uses the same HMAC-SHA256 Stake provably fair seeding as real games. All algorithm logic is identical to live — no simplifications.
+                    </div>
+
+                    <div class="form-group">
+                        <label>Strategy Algorithm</label>
+                        <select id="sim_strategy" onchange="simToggleStrat()">
+                            <option value="the_gork">THE GORK (Conservative)</option>
+                            <option value="ema_cross">EMA CROSSOVER (Trend)</option>
+                            <option value="die_last">DIE LAST (Aggressive)</option>
+                            <option value="vanish_in_volume">VANISH IN VOLUME (Safe)</option>
+                            <option value="eternal_volume">ETERNAL VOLUME (Volume)</option>
+                            <option value="custom">CUSTOM (Your Python Code)</option>
+                        </select>
+                        <div id="sim-strat-desc" style="font-size:0.78rem; color:var(--secondary); margin-top:0.5rem; padding:0.5rem; background:rgba(0,0,0,0.2); border-radius:4px; border-left:2px solid var(--primary);"></div>
+                    </div>
+
+                    <div class="config-grid">
+                        <div class="form-group">
+                            <label>Starting Balance <span class="tooltip">!<span class="tooltiptext">The virtual bankroll the simulation starts with. Does not use real funds.</span></span></label>
+                            <input type="number" id="sim_balance" value="1000.00" step="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Bet Count <span class="tooltip">!<span class="tooltiptext">Number of individual dice bets to simulate. Higher counts give more accurate long-term results.</span></span></label>
+                            <input type="number" id="sim_bets" value="10000" step="100" style="width:100%;">
+                        </div>
+                        <div class="form-group">
+                            <label>All-Time Drawdown % <span class="tooltip">!<span class="tooltiptext">Simulation halts permanently if the balance drops this % below the starting balance. Same as the real live circuit breaker.</span></span></label>
+                            <input type="number" id="sim_atcap" step="0.1" value="-8.0">
+                        </div>
+                        <div class="form-group">
+                            <label>Min Bet Floor <span class="tooltip">!<span class="tooltiptext">The smallest bet the algorithm is permitted to place. Prevents rounding errors at near-zero balances.</span></span></label>
+                            <input type="number" id="sim_floor" step="0.000001" value="0.000001">
+                        </div>
+                    </div>
+
+                    <!-- THE GORK params in sim -->
+                    <div id="sim_gork_config" class="sim-strat-panel">
+                        <div class="config-grid">
+                            <div class="form-group">
+                                <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">% of balance risked on the initial bet. The Gork scales up when recovering.</span></span></label>
+                                <div class="input-with-usd">
+                                    <input type="number" id="s_g_base" step="0.0001" value="0.0012" oninput="syncPctToUsd('s_g_base')">
+                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                    <input id="s_g_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_g_base')">
+                                </div>
+                            </div>
+                            <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Stops the session and resets when your balance is up this % from session start.</span></span></label><input type="number" id="s_g_tp" step="0.1" value="3.0"></div>
+                            <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Stops the session if drawdown exceeds this % from session start. Protects against deep holes.</span></span></label><input type="number" id="s_g_sl" step="0.1" value="-1.4"></div>
+                            <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Circuit breaker: locks bot for 24h if daily P&L drops below this threshold.</span></span></label><input type="number" id="s_g_daily" step="0.1" value="-1.8"></div>
+                        </div>
+                    </div>
+                    <!-- EMA params in sim -->
+                    <div id="sim_ema_config" class="sim-strat-panel" style="display:none;">
+                        <div class="config-grid">
+                            <div class="form-group">
+                                <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Fractional balance bet per iteration. EMA signal adjusts Over/Under direction, not size.</span></span></label>
+                                <div class="input-with-usd">
+                                    <input type="number" id="s_ema_base" step="0.0001" value="0.0012" oninput="syncPctToUsd('s_ema_base')">
+                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                    <input id="s_ema_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_ema_base')">
+                                </div>
+                            </div>
+                            <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Target profit threshold to auto-exit the session.</span></span></label><input type="number" id="s_ema_tp" step="0.1" value="2.0"></div>
+                            <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Session stop-loss. Exits when drawdown from session start exceeds this %.</span></span></label><input type="number" id="s_ema_sl" step="0.1" value="-1.2"></div>
+                            <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">24-hour global loss cap. Halts all activity for the rest of the day.</span></span></label><input type="number" id="s_ema_daily" step="0.1" value="-2.0"></div>
+                        </div>
+                    </div>
+                    <!-- DIE LAST params in sim -->
+                    <div id="sim_die_last_config" class="sim-strat-panel" style="display:none;">
+                        <div class="config-grid">
+                            <div class="form-group">
+                                <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Higher base bet — Die Last runs aggressive 2.5x streak multipliers so start conservatively.</span></span></label>
+                                <div class="input-with-usd">
+                                    <input type="number" id="s_dl_base" step="0.0001" value="0.005" oninput="syncPctToUsd('s_dl_base')">
+                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                    <input id="s_dl_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_dl_base')">
+                                </div>
+                            </div>
+                            <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Higher TP target required since Die Last streaks up aggressively to reach it.</span></span></label><input type="number" id="s_dl_tp" step="0.1" value="8.0"></div>
+                            <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Tight stop-loss limits damage from sustained losing runs before a streak resets.</span></span></label><input type="number" id="s_dl_sl" step="0.1" value="-3.5"></div>
+                            <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Hard daily ceiling — activates 24h lockout if cumulative daily loss exceeds this.</span></span></label><input type="number" id="s_dl_daily" step="0.1" value="-5.0"></div>
+                        </div>
+                    </div>
+                    <!-- VANISH params in sim -->
+                    <div id="sim_vanish_config" class="sim-strat-panel" style="display:none;">
+                        <div class="config-grid">
+                            <div class="form-group">
+                                <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Ultra-low base bet. Vanish dynamically shrinks this further during drawdown phases.</span></span></label>
+                                <div class="input-with-usd">
+                                    <input type="number" id="s_v_base" step="0.0001" value="0.0015" oninput="syncPctToUsd('s_v_base')">
+                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                    <input id="s_v_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_v_base')">
+                                </div>
+                            </div>
+                            <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Target profit to exit the session. Vanish reaches this slowly but safely.</span></span></label><input type="number" id="s_v_tp" step="0.1" value="3.5"></div>
+                            <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Defense threshold — stops the session to prevent the shrink factor from reducing bets too far.</span></span></label><input type="number" id="s_v_sl" step="0.1" value="-2.0"></div>
+                            <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Daily lockout threshold. Conservative — Vanish prioritises capital preservation.</span></span></label><input type="number" id="s_v_daily" step="0.1" value="-1.5"></div>
+                        </div>
+                    </div>
+                    <!-- ETERNAL params in sim -->
+                    <div id="sim_eternal_config" class="sim-strat-panel" style="display:none;">
+                        <div class="config-grid">
+                            <div class="form-group">
+                                <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Flat fractional per-bet. Eternal recalculates this from your current balance every single bet.</span></span></label>
+                                <div class="input-with-usd">
+                                    <input type="number" id="s_e_base" step="0.0001" value="0.0012" oninput="syncPctToUsd('s_e_base')">
+                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                    <input id="s_e_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_e_base')">
+                                </div>
+                            </div>
+                            <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Soft profit target. Eternal exits fast — favours volume over large sessions.</span></span></label><input type="number" id="s_e_tp" step="0.1" value="3.0"></div>
+                            <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Very tight stop. Flat sizing means losses accumulate slowly; exit quickly.</span></span></label><input type="number" id="s_e_sl" step="0.1" value="-1.4"></div>
+                            <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Daily lockout. Should be set loosely since Eternal runs very many small sessions per day.</span></span></label><input type="number" id="s_e_daily" step="0.1" value="-2.5"></div>
+                        </div>
+                    </div>
+                    <div id="sim_custom_config" class="sim-strat-panel" style="display:none;">
+                        <div class="config-grid">
+                            <div class="form-group">
+                                <label>Custom Base % <span class="tooltip">!<span class="tooltiptext">Base bet parameter for your custom code.</span></span></label>
+                                <input type="number" id="s_c_base" step="0.0001" value="0.001">
+                            </div>
+                            <div class="form-group"><label>Custom TP %</label><input type="number" id="s_c_tp" step="0.1" value="2.0"></div>
+                            <div class="form-group"><label>Custom SL %</label><input type="number" id="s_c_sl" step="0.1" value="-1.0"></div>
+                            <div class="form-group"><label>Custom Daily Cap %</label><input type="number" id="s_c_daily" step="0.1" value="-1.0"></div>
+                        </div>
+                    </div>
+
+                    <button class="btn-start" style="width:100%;margin-top:1rem;font-size:1.05rem;padding:0.9rem;" onclick="runSimulation()">▶ Execute Simulation (HMAC Seeded)</button>
+                </div>
+
+                <!-- Saved Presets Panel -->
+                <div class="panel">
+                    <h3>Saved Strategy Presets</h3>
+                    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+                        <input type="text" id="preset_name" placeholder="Preset name..." style="flex:1;">
+                        <button class="btn-start" style="padding:0.5rem 1rem;font-size:0.85rem;" onclick="savePreset()">Save</button>
+                    </div>
+                    <div id="preset-list" style="display:flex;flex-direction:column;gap:0.5rem;"></div>
+                </div>
+            </div>
+
+            <!-- Right: Results Panel -->
+            <div class="panel" style="align-self:start;">
+                <h3>Benchmark Results</h3>
+                <!-- Equity Curve Chart -->
+                <div id="sim-chart-wrap" style="height:300px; width:100%; margin-bottom:1.5rem; border-radius:8px; overflow:hidden; border:1px solid rgba(102,252,241,0.1); display:none;">
+                    <div id="sim-chart" style="width:100%;height:100%;"></div>
+                </div>
+                <div class="sim-grid" style="grid-template-columns:1fr 1fr;">
+                    <div class="sim-stat"><div class="sim-title">Final Balance</div><div class="sim-val" id="res-bal">$1000.00</div></div>
+                    <div class="sim-stat"><div class="sim-title">Net P&L</div><div class="sim-val" id="res-pnl">$0.00</div></div>
+                    <div class="sim-stat"><div class="sim-title">Total Wagered</div><div class="sim-val" id="res-wager">$0.00</div></div>
+                    <div class="sim-stat"><div class="sim-title">Win Rate</div><div class="sim-val" id="res-wr">0.00%</div></div>
+                    <div class="sim-stat"><div class="sim-title">Worst Drawdown</div><div class="sim-val sim-danger" id="res-dd">0.00%</div></div>
+                    <div class="sim-stat"><div class="sim-title">Peak Balance</div><div class="sim-val sim-success" id="res-peak">$1000.00</div></div>
+                    <div class="sim-stat"><div class="sim-title">Wins / Losses</div><div class="sim-val" style="color:#fff;font-size:1.1rem;" id="res-wl">0 / 0</div></div>
+                    <div class="sim-stat"><div class="sim-title">Circuit Breakers</div><div class="sim-val" style="color:#f1c40f;" id="res-cb">0</div></div>
+                </div>
+                <div id="sim-summary" style="margin-top:1.5rem; padding:1rem; background:rgba(0,0,0,0.3); border-radius:8px; font-size:0.85rem; line-height:1.8; color:var(--text); display:none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SETTINGS & VIP TAB -->
+
+    <div id="settings" class="tab-content" style="display:none;">
+        <div class="settings-grid">
+            
+            <!-- Left Column: Core Settings -->
+            <div style="display:flex; flex-direction:column; gap:2rem;">
+                <div class="panel">
+                    <h3>Connection & API Key</h3>
+                    <div class="form-group">
+                        <label>Stake API Bearer Token</label>
+                        <div class="input-group">
+                            <input type="password" id="api_token" placeholder="Enter Token...">
+                            <button class="btn-start" onclick="saveApiKey()">Save & Validate</button>
+                        </div>
+                        <div id="api-error-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem; display: none;"></div>
+                    </div>
+                    <div style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center;">
+                        <span style="color:var(--secondary); font-size:0.9rem;">API Health Status:</span>
+                        <span id="api-health" class="badge PAUSED">WAITING</span>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>Gemini AI Integration</h3>
+                    <div class="form-group">
+                        <label>Google Gemini API Key</label>
+                        <div class="input-group">
+                            <input type="password" id="gemini_key" placeholder="Paste Gemini Key...">
+                            <button class="btn-start" onclick="saveGeminiKey()">Update AI Engine</button>
+                        </div>
+                        <div style="font-size:0.75rem; color:var(--secondary); margin-top:0.4rem;">Used for natural language terminal control.</div>
+                    </div>
+                </div>
+
+
+                <div class="panel">
+                    <h3>Active Wallets</h3>
+                    <div style="color:var(--secondary); font-size:0.8rem; margin-bottom:1rem;">Select active balance. Converted to USD automatically.</div>
+                    <div id="wallet-list">
+                        <!-- Populated by JS -->
+                        <div style="text-align:center; padding: 2rem; color: rgba(255,255,255,0.2);">Awaiting API...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: VIP Dashboard -->
+            <div style="display:flex; flex-direction:column; gap:2rem;">
+                <div class="panel vip-card">
+                    <h3 style="border:none; margin:0;">VIP PROGRESS</h3>
+                    <div class="vip-badge" id="vip-rank">?</div>
+                    
+                    <div style="margin-top:2rem;">
+                        <span style="font-size:1.5rem; font-weight:bold; color:#fff;" id="vip-pct">0.00%</span>
+                        <div class="progress-bg">
+                            <div class="progress-fill" id="vip-fill" style="width: 0%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel">
+                    <h3>Rewards & Claims</h3>
+                    <div class="claim-row">
+                        <div>
+                            <div style="font-weight:bold; color:#fff;">Rakeback</div>
+                            <div style="font-size:0.8rem; color:var(--secondary);">Available to claim!</div>
+                        </div>
+                        <button class="claim-btn">Claim</button>
+                    </div>
+                    <div class="claim-row">
+                        <div>
+                            <div style="font-weight:bold; color:#fff;">Reload</div>
+                            <div style="font-size:0.8rem; color:var(--secondary);">No Reload available.</div>
+                        </div>
+                        <button class="claim-btn disabled">Claim</button>
+                    </div>
+                    <div class="claim-row">
+                        <div>
+                            <div style="font-weight:bold; color:#fff;">Weekly Boost</div>
+                            <div style="font-size:0.8rem; color:var(--secondary);">View Details</div>
+                        </div>
+                        <span style="color:var(--secondary);">></span>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <h3>Wager Statistics</h3>
+                    <div class="stat-row"><span>Daily Wager</span><span class="stat-value" id="stat-day">$0.00</span></div>
+                    <div class="stat-row"><span>Weekly Wager</span><span class="stat-value" id="stat-week">$0.00</span></div>
+                    <div class="stat-row"><span>Monthly Wager</span><span class="stat-value" id="stat-month">$0.00</span></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        // Tab Logic
+        function openTab(tabId) {
+            document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            
+            event.target.classList.add('active');
+            document.getElementById(tabId).style.display = 'block';
+            if (tabId === 'editor') {
+                setTimeout(() => editor.resize(), 100);
+            }
+        }
+
+        function toggleStrat() {
+            const strat = document.getElementById('strategy').value;
+            document.querySelectorAll('.strat-panel').forEach(p => p.style.display = 'none');
+            
+            const desc = document.getElementById('strat-desc');
+            if (strat === 'the_gork') {
+                document.getElementById('gork_config').style.display = 'block';
+                desc.textContent = "Auto-scales bet size based on distance to the daily starting bankroll target. The ultimate distance recovery algorithm.";
+            } else if (strat === 'die_last') {
+                document.getElementById('die_last_config').style.display = 'block';
+                desc.textContent = "Aggressive progression. Higher base bet, utilizes 2.5x streak multipliers. Can drop base bet by 50% on prolonged loss streaks.";
+            } else if (strat === 'vanish_in_volume') {
+                document.getElementById('vanish_config').style.display = 'block';
+                desc.textContent = "Ultra-defensive. Maximum 1.8x streak multiplier. Automatically shrinks base bet sizes the further the session drops into drawdown.";
+            } else if (strat === 'eternal_volume') {
+                document.getElementById('eternal_config').style.display = 'block';
+                desc.textContent = "Zero progression. Flat fractional bet percentages sized freshly every single bet. The absolute highest volume with the lowest ruin rate.";
+            } else if (strat === 'ema_cross') {
+                document.getElementById('ema_config').style.display = 'block';
+                desc.textContent = "Trend following algorithm calculating the 5-Period and 20-Period Exponential Moving Average of float roll probabilities. Buys >50.50 dynamically.";
+            } else if (strat === 'custom') {
+                document.getElementById('custom_config').style.display = 'block';
+                desc.textContent = "Your custom Python strategy. Code it in the STRATEGY EDITOR tab.";
+            }
+        }
+
+        let globalPrices = {btc:100000, ltc:100, eth:2500};
+        let currentBalance = 0;
+        let currentCurrency = 'btc';
+        // Global chart objects
+        window.gork_sim_chart = null;
+
+        function syncPctToUsd(baseId) {
+            const isSim = baseId.startsWith('s_');
+            const pct = parseFloat(document.getElementById(baseId).value) / 100;
+            const usdInput = document.getElementById(baseId + '_usd');
+            if (!usdInput || isNaN(pct)) return;
+            const price = globalPrices[currentCurrency] || 1;
+            const balance = isSim ? parseFloat(document.getElementById('sim_balance').value) : currentBalance;
+            if (balance > 0) {
+                usdInput.value = (balance * pct * price).toFixed(2);
+            }
+        }
+
+        function syncUsdToPct(baseId) {
+            const isSim = baseId.startsWith('s_');
+            const usdVal = parseFloat(document.getElementById(baseId + '_usd').value);
+            const pctInput = document.getElementById(baseId);
+            if (!pctInput || isNaN(usdVal)) return;
+            const price = globalPrices[currentCurrency] || 1;
+            const balance = isSim ? parseFloat(document.getElementById('sim_balance').value) : currentBalance;
+            if (balance > 0 && price > 0) {
+                pctInput.value = ((usdVal / price) / balance * 100).toFixed(8);
+            }
+        }
+
+        function update() {
+            fetch('/status').then(r=>r.json()).then(d => {
+                currentBalance = d.balance.available;
+                currentCurrency = d.balance.currency.toLowerCase();
+                if (d.prices) globalPrices = d.prices;
+
+                document.getElementById('balance').textContent = d.balance.available.toFixed(8);
+                document.getElementById('currency').textContent = d.balance.currency.toUpperCase();
+                document.getElementById('bet').textContent = d.current_bet.toFixed(8);
+                document.getElementById('bets').textContent = d.total_bets;
+                document.getElementById('wagered').textContent = d.total_wagered.toFixed(8);
+                
+                const sb = document.getElementById('status-badge');
+                if (d.is_running) {
+                    sb.textContent = 'RUNNING'; sb.className = 'badge RUNNING';
+                    document.getElementById('startBtn').classList.add('running-pulse');
+                } else {
+                    sb.textContent = 'PAUSED'; sb.className = 'badge PAUSED';
+                    document.getElementById('startBtn').classList.remove('running-pulse');
+                }
+                
+                // update logs
+                const logsDiv = document.getElementById('logs');
+                logsDiv.innerHTML = d.logs.map(l => `<div>${l}</div>`).join('');
+                logsDiv.scrollTop = logsDiv.scrollHeight;
+            });
+        }
+
+        function startBot() {
+            const strat = document.getElementById('strategy').value;
+            const data = {
+                strategy: strat,
+                all_time_drawdown_cap_pct: parseFloat(document.getElementById('all_time_cap').value),
+                min_bet_floor: parseFloat(document.getElementById('min_bet').value)
+            };
+            
+            if (strat === 'the_gork') {
+                data.base_bet_pct = parseFloat(document.getElementById('g_base').value);
+                data.session_tp_pct = parseFloat(document.getElementById('g_tp').value);
+                data.session_sl_pct = parseFloat(document.getElementById('g_sl').value);
+                data.daily_loss_cap_pct = parseFloat(document.getElementById('g_daily').value);
+            } else if (strat === 'die_last') {
+                data.die_last_base_bet_pct = parseFloat(document.getElementById('dl_base').value);
+                data.die_last_tp_pct = parseFloat(document.getElementById('dl_tp').value);
+                data.die_last_sl_pct = parseFloat(document.getElementById('dl_sl').value);
+                data.die_last_daily_loss_cap_pct = parseFloat(document.getElementById('dl_daily').value);
+            } else if (strat === 'vanish_in_volume') {
+                data.vanish_base_bet_pct = parseFloat(document.getElementById('v_base').value);
+                data.vanish_tp_pct = parseFloat(document.getElementById('v_tp').value);
+                data.vanish_sl_pct = parseFloat(document.getElementById('v_sl').value);
+                data.vanish_daily_loss_cap_pct = parseFloat(document.getElementById('v_daily').value);
+            } else if (strat === 'eternal_volume') {
+                data.eternal_base_bet_pct = parseFloat(document.getElementById('e_base').value);
+                data.eternal_tp_pct = parseFloat(document.getElementById('e_tp').value);
+                data.eternal_sl_pct = parseFloat(document.getElementById('e_sl').value);
+                data.eternal_daily_loss_cap_pct = parseFloat(document.getElementById('e_daily').value);
+            } else if (strat === 'custom') {
+                data.c_base = parseFloat(document.getElementById('c_base').value);
+                data.c_tp = parseFloat(document.getElementById('c_tp').value);
+                data.c_sl = parseFloat(document.getElementById('c_sl').value);
+                data.c_daily = parseFloat(document.getElementById('c_daily').value);
+            }
+
+            fetch('/start', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data)});
+        }
+
+        function stopBot() { fetch('/stop', {method:'POST'}); }
+
+        // Lightweight Charts Setup
+        const chartOptions = { 
+            layout: { textColor: '#c5c6c7', background: { type: 'solid', color: 'transparent' } }, 
+            grid: { vertLines: { color: 'rgba(255,255,255,0.05)' }, horzLines: { color: 'rgba(255,255,255,0.05)' } },
+            crosshair: { mode: 0 },
+            rightPriceScale: { borderColor: 'rgba(255,255,255,0.1)' },
+            timeScale: { borderColor: 'rgba(255,255,255,0.1)' }
+        };
+        const chart = LightweightCharts.createChart(document.getElementById('tvchart'), chartOptions);
+        
+        const profitSeries = chart.addAreaSeries({ lineColor: '#66fcf1', topColor: 'rgba(102, 252, 241, 0.4)', bottomColor: 'rgba(102, 252, 241, 0.0)', lineWidth: 2, title: 'PnL' });
+        const ema5Series = chart.addLineSeries({ color: '#f39c12', lineWidth: 1, title: 'EMA 5' });
+        const ema20Series = chart.addLineSeries({ color: '#8e44ad', lineWidth: 1, title: 'EMA 20' });
+        const rollSeries = chart.addHistogramSeries({ color: '#2ed573', priceFormat: { type: 'volume' }, priceScaleId: '', title: 'Rolls' });
+        rollSeries.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+
+        function updateChart() {
+            fetch('/chart_data').then(r=>r.json()).then(data => {
+                if (data.length === 0) return;
+                
+                const mappedData = data.map((d, i) => { return { ...d, time: d.bets || i }; });
+                const dedup = Array.from(new Map(mappedData.map(item => [item.time, item])).values());
+                dedup.sort((a,b) => a.time - b.time); // Strictly ascending for TV timescale
+                
+                try {
+                    profitSeries.setData(dedup.map(d => ({ time: d.time, value: d.profit || 0 })));
+                    if (dedup[0].ema5 !== undefined && dedup[0].ema5 !== null) {
+                        ema5Series.setData(dedup.filter(d => d.ema5 !== null).map(d => ({ time: d.time, value: d.ema5 || 0 })));
+                        ema20Series.setData(dedup.filter(d => d.ema20 !== null).map(d => ({ time: d.time, value: d.ema20 || 0 })));
+                        rollSeries.setData(dedup.map(d => ({ time: d.time, value: d.roll_result || 0, color: d.roll_result > 50 ? '#2ed573' : '#ff4757' })));
+                    }
+                } catch(e) {} // Suppress timeframe errors if bets overlap
+            });
+        }
+
+        // --- NEW VIP & SETTINGS JS LOGIC ---
+        function saveApiKey() {
+            const token = document.getElementById('api_token').value;
+            const health = document.getElementById('api-health');
+            const errorMsg = document.getElementById('api-error-msg');
+            
+            health.textContent = "CHECKING..."; health.className = "badge";
+            errorMsg.style.display = 'none';
+            
+            fetch('/settings/api_key', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({token})
+            }).then(r=>r.json()).then(d => {
+                if (d.success) {
+                    health.textContent = "CONNECTED"; health.className = "badge RUNNING";
+                    loadSettingsData(); // Refresh UI instantly
+                } else {
+                    health.textContent = "DISCONNECTED"; health.className = "badge PAUSED";
+                    errorMsg.textContent = d.error || "Unknown error.";
+                    errorMsg.style.display = 'block';
+                }
+            }).catch(e => {
+                health.textContent = "ERROR"; health.className = "badge PAUSED";
+                errorMsg.textContent = "Network error connecting to backend.";
+                errorMsg.style.display = 'block';
+            });
+        }
+
+        // --- SIMULATOR LOGIC ---
+        const SIM_STRAT_DESCS = {
+            the_gork: "Auto-scales bet size based on distance to the daily starting bankroll target. The ultimate distance recovery algorithm.",
+            ema_cross: "Trend following algorithm calculating the 5-Period and 20-Period Exponential Moving Average of float roll probabilities. Buys >50.50 dynamically.",
+            die_last: "Aggressive progression. Higher base bet, utilizes 2.5x streak multipliers. Can drop base bet by 50% on prolonged loss streaks.",
+            vanish_in_volume: "Ultra-defensive. Maximum 1.8x streak multiplier. Automatically shrinks base bet sizes the further the session drops into drawdown.",
+            eternal_volume: "Flat fractional sizing every single bet. Highest volume, lowest ruin rate.",
+            custom: "Your custom Python strategy. Modifiable in the Editor tab."
+        };
+        function simToggleStrat() {
+            const strat = document.getElementById('sim_strategy').value;
+            document.querySelectorAll('.sim-strat-panel').forEach(p => p.style.display = 'none');
+            const map = { the_gork:'sim_gork_config', ema_cross:'sim_ema_config', die_last:'sim_die_last_config', vanish_in_volume:'sim_vanish_config', eternal_volume:'sim_eternal_config', custom:'sim_custom_config' };
+            if(map[strat]) document.getElementById(map[strat]).style.display = 'block';
+            document.getElementById('sim-strat-desc').textContent = SIM_STRAT_DESCS[strat] || '';
+        }
+        simToggleStrat(); // init
+
+        function getSimParams() {
+            const strat = document.getElementById('sim_strategy').value;
+            const data = {
+                strategy: strat,
+                starting_balance: parseFloat(document.getElementById('sim_balance').value),
+                bets_to_simulate: parseInt(document.getElementById('sim_bets').value),
+                all_time_drawdown_cap_pct: parseFloat(document.getElementById('sim_atcap').value),
+                min_bet_floor: parseFloat(document.getElementById('sim_floor').value)
+            };
+            if (strat === 'the_gork') {
+                data.base_bet_pct = parseFloat(document.getElementById('s_g_base').value);
+                data.session_tp_pct = parseFloat(document.getElementById('s_g_tp').value);
+                data.session_sl_pct = parseFloat(document.getElementById('s_g_sl').value);
+                data.daily_loss_cap_pct = parseFloat(document.getElementById('s_g_daily').value);
+            } else if (strat === 'ema_cross') {
+                data.ema_base_bet_pct = parseFloat(document.getElementById('s_ema_base').value);
+                data.session_tp_pct = parseFloat(document.getElementById('s_ema_tp').value);
+                data.session_sl_pct = parseFloat(document.getElementById('s_ema_sl').value);
+                data.daily_loss_cap_pct = parseFloat(document.getElementById('s_ema_daily').value);
+            } else if (strat === 'die_last') {
+                data.die_last_base_bet_pct = parseFloat(document.getElementById('s_dl_base').value);
+                data.die_last_tp_pct = parseFloat(document.getElementById('s_dl_tp').value);
+                data.die_last_sl_pct = parseFloat(document.getElementById('s_dl_sl').value);
+                data.die_last_daily_loss_cap_pct = parseFloat(document.getElementById('s_dl_daily').value);
+            } else if (strat === 'vanish_in_volume') {
+                data.vanish_base_bet_pct = parseFloat(document.getElementById('s_v_base').value);
+                data.vanish_tp_pct = parseFloat(document.getElementById('s_v_tp').value);
+                data.vanish_sl_pct = parseFloat(document.getElementById('s_v_sl').value);
+                data.vanish_daily_loss_cap_pct = parseFloat(document.getElementById('s_v_daily').value);
+            } else if (strat === 'eternal_volume') {
+                data.eternal_base_bet_pct = parseFloat(document.getElementById('s_e_base').value);
+                data.eternal_tp_pct = parseFloat(document.getElementById('s_e_tp').value);
+                data.eternal_sl_pct = parseFloat(document.getElementById('s_e_sl').value);
+                data.eternal_daily_loss_cap_pct = parseFloat(document.getElementById('s_e_daily').value);
+            } else if (strat === 'custom') {
+                data.c_base = parseFloat(document.getElementById('s_c_base').value);
+                data.c_tp = parseFloat(document.getElementById('s_c_tp').value);
+                data.c_sl = parseFloat(document.getElementById('s_c_sl').value);
+                data.c_daily = parseFloat(document.getElementById('s_c_daily').value);
+            }
+            return data;
+        }
+
+        // ── Render equity curve chart ──
+        function runSimulation() {
+            const btn = Array.from(document.querySelectorAll('#simulate .btn-start')).find(b => b.textContent.includes('Execute'));
+            const statBadge = document.getElementById('sim-status');
+            btn.textContent = "⏳ Simulating..."; btn.disabled = true;
+            statBadge.textContent = "CALCULATING"; statBadge.className = "badge RUNNING";
+            const data = getSimParams();
+            fetch('/simulate', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify(data)
+            }).then(r=>r.json()).then(res => {
+                btn.textContent = "▶ Execute Simulation (HMAC Seeded)"; btn.disabled = false;
+                if (res.error) { statBadge.textContent = "ERR: " + res.error; statBadge.className = "badge PAUSED"; return; }
+                statBadge.textContent = "COMPLETE"; statBadge.className = "badge RUNNING";
+                const pnl = res.final_balance - res.starting_balance;
+                const wr = res.wins / (res.wins + res.losses) * 100;
+                document.getElementById('res-bal').textContent = `$${res.final_balance.toFixed(4)}`;
+                document.getElementById('res-bal').style.color = pnl >= 0 ? '#2ed573' : '#ff4757';
+                document.getElementById('res-pnl').textContent = `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(4)}`;
+                document.getElementById('res-pnl').style.color = pnl >= 0 ? '#2ed573' : '#ff4757';
+                document.getElementById('res-wager').textContent = `$${res.total_wagered.toFixed(2)}`;
+                document.getElementById('res-wr').textContent = `${wr.toFixed(2)}%`;
+                document.getElementById('res-wr').style.color = wr >= 49.5 ? '#2ed573' : '#ff4757';
+                document.getElementById('res-dd').textContent = `${res.worst_drawdown.toFixed(2)}%`;
+                document.getElementById('res-peak').textContent = `$${res.peak_balance.toFixed(4)}`;
+                document.getElementById('res-wl').textContent = `${res.wins} / ${res.losses}`;
+                document.getElementById('res-cb').textContent = res.circuit_breakers;
+                const summary = document.getElementById('sim-summary');
+                summary.style.display = 'block';
+                summary.innerHTML = `<strong style="color:var(--primary);">Simulation Summary</strong><br>
+                    Strategy: <strong>${data.strategy.toUpperCase()}</strong> &nbsp;|&nbsp; Bets: <strong>${res.wins + res.losses}</strong><br>
+                    House Edge Drift: <strong style="color:#f39c12;">${(pnl / res.total_wagered * 100).toFixed(4)}% of wagered</strong><br>
+                    Seeding: <strong>HMAC-SHA256 (Stake Provably Fair Algorithm)</strong>`;
+
+                if (res.equity_curve && res.equity_curve.length > 1) {
+                    const chartWrap = document.getElementById('sim-chart-wrap');
+                    chartWrap.style.display = 'block';
+                    const chartEl = document.getElementById('sim-chart');
+                    
+                    // Defense: Clear any previous instances safely
+                    if (window.gork_sim_chart) {
+                        try { window.gork_sim_chart.remove(); } catch(e) {}
+                        window.gork_sim_chart = null;
+                    }
+
+                    // Use setTimeout to ensure the DOM is ready and clientWidth is calculated
+                    setTimeout(() => {
+                        try {
+                            const profitColor = pnl >= 0 ? '#2ed573' : '#ff4757';
+                            const cWidth = chartEl.clientWidth || 600;
+                            
+                            window.gork_sim_chart = LightweightCharts.createChart(chartEl, {
+                                layout: { backgroundColor: '#0d1117', textColor: '#a0aec0' },
+                                grid: { vertLines: { color: 'rgba(255,255,255,0.04)' }, horzLines: { color: 'rgba(255,255,255,0.04)' } },
+                                rightPriceScale: { borderColor: 'rgba(102,252,241,0.18)' },
+                                timeScale: { borderColor: 'rgba(102,252,241,0.18)', timeVisible: false },
+                                width: cWidth, height: 298,
+                            });
+                            
+                            const areaSeries = window.gork_sim_chart.addAreaSeries({
+                                lineColor: profitColor,
+                                topColor: profitColor + '44',
+                                bottomColor: profitColor + '08',
+                                lineWidth: 2,
+                                priceLineVisible: false,
+                            });
+                            
+                            const chartData = res.equity_curve.map((pt, i) => ({ time: i + 1, value: pt.value }));
+                            areaSeries.setData(chartData);
+                            
+                            areaSeries.createPriceLine({
+                                price: res.starting_balance, color: 'rgba(255,255,255,0.3)',
+                                lineWidth: 1, lineStyle: 2, // Dashed
+                                title: 'Breakeven',
+                            });
+                            
+                            window.gork_sim_chart.timeScale().fitContent();
+                        } catch (chartErr) {
+                            console.error("Critical Charting Error:", chartErr);
+                            statBadge.textContent = "CHART ERROR";
+                        }
+                    }, 50);
+                }
+        }
+
+        function savePreset() {
+            const name = document.getElementById('preset_name').value.trim();
+            if (!name) { alert('Enter a preset name first.'); return; }
+            const params = getSimParams();
+            fetch('/strategies', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({ name, strategy: params.strategy, config: params })
+            }).then(r=>r.json()).then(d => {
+                if(d.success) { document.getElementById('preset_name').value = ''; loadPresets(); }
+                else alert('Error saving: ' + (d.error || 'unknown'));
+            });
+        }
+
+        function loadPresets() {
+            fetch('/strategies').then(r=>r.json()).then(list => {
+                const container = document.getElementById('preset-list');
+                if(!list.length) { container.innerHTML = '<div style="color:var(--secondary);font-size:0.85rem;">No saved presets yet.</div>'; return; }
+                container.innerHTML = list.map(p => `
+                    <div style="display:flex;gap:0.5rem;align-items:center;padding:0.6rem;background:rgba(0,0,0,0.3);border-radius:6px;border:1px solid rgba(102,252,241,0.1);">
+                        <div style="flex:1;">
+                            <div style="color:#fff;font-weight:600;font-size:0.9rem;">${p.name}</div>
+                            <div style="color:var(--secondary);font-size:0.75rem;">${p.strategy.toUpperCase()} &bull; ${p.created_at}</div>
+                        </div>
+                        <button onclick="applyPreset(${p.id})" style="background:var(--primary);color:var(--bg);border:none;padding:0.3rem 0.7rem;border-radius:4px;cursor:pointer;font-size:0.8rem;font-weight:600;">Load</button>
+                        <button onclick="deletePreset(${p.id})" style="background:rgba(255,71,87,0.1);color:var(--danger);border:1px solid var(--danger);border-radius:4px;padding:0.3rem 0.7rem;cursor:pointer;font-size:0.8rem;">✕</button>
+                    </div>`).join('');
+            });
+        }
+
+        function applyPreset(id) {
+            fetch('/strategies/' + id).then(r=>r.json()).then(p => {
+                if(!p.config) return;
+                const cfg = p.config;
+                document.getElementById('sim_strategy').value = p.strategy;
+                simToggleStrat();
+                document.getElementById('sim_atcap').value = cfg.all_time_drawdown_cap_pct ?? -8;
+                document.getElementById('sim_floor').value = cfg.min_bet_floor ?? 0.000001;
+                if(cfg.starting_balance) document.getElementById('sim_balance').value = cfg.starting_balance;
+                const map = { base_bet_pct:'s_g_base', session_tp_pct:'s_g_tp', session_sl_pct:'s_g_sl', daily_loss_cap_pct:'s_g_daily',
+                    die_last_base_bet_pct:'s_dl_base', die_last_tp_pct:'s_dl_tp', die_last_sl_pct:'s_dl_sl', die_last_daily_loss_cap_pct:'s_dl_daily',
+                    vanish_base_bet_pct:'s_v_base', vanish_tp_pct:'s_v_tp', vanish_sl_pct:'s_v_sl', vanish_daily_loss_cap_pct:'s_v_daily',
+                    eternal_base_bet_pct:'s_e_base', eternal_tp_pct:'s_e_tp', eternal_sl_pct:'s_e_sl', eternal_daily_loss_cap_pct:'s_e_daily',
+                    ema_base_bet_pct:'s_ema_base' };
+                Object.entries(map).forEach(([k,v]) => { if(cfg[k] !== undefined && document.getElementById(v)) document.getElementById(v).value = cfg[k]; });
+            });
+        }
+
+        function deletePreset(id) {
+            if(!confirm('Delete this preset?')) return;
+            fetch('/strategies/' + id, {method:'DELETE'}).then(()=>loadPresets());
+        }
+
+        // Initialize Ace Editor
+        const editor = ace.edit("ace-editor");
+        editor.setTheme("ace/theme/tomorrow_night_eighties");
+        editor.session.setMode("ace/mode/python");
+        editor.setOptions({ fontSize: "14px" });
+
+        function saveCustomCode() {
+            const code = editor.getValue();
+            const status = document.getElementById('editor-status');
+            status.textContent = "Saving..."; status.style.color = "var(--secondary)";
+            fetch('/custom_strategy', {
+                method: 'POST', headers: {'Content-Type':'application/json'},
+                body: JSON.stringify({code})
+            }).then(r=>r.json()).then(d => {
+                if(d.success) {
+                    status.textContent = "✓ Saved successfully."; status.style.color = "var(--primary)";
+                    setTimeout(() => status.textContent = "", 3000);
+                } else {
+                    status.textContent = "Error: " + d.error; status.style.color = "var(--danger)";
+                }
+            });
+        }
+
+        function loadCustomCode() {
+            fetch('/custom_strategy').then(r=>r.json()).then(d => {
+                if(d.code) editor.setValue(d.code, -1);
+            });
+        }
+
+        function saveGeminiKey() {
+            const key = document.getElementById('gemini_key').value;
+            fetch('/settings/gemini_key', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('gork_jwt') },
+                body: JSON.stringify({ key: key })
+            }).then(r => r.json()).then(d => {
+                alert(d.message || d.error);
+            });
+        }
+
+        function sendAiMessage() {
+            const input = document.getElementById('ai-input');
+            const msg = input.value.trim();
+            if (!msg) return;
+
+            const chat = document.getElementById('ai-chat');
+            chat.innerHTML += `<div class="ai-msg ai-msg-user"><b>You:</b> ${msg}</div>`;
+            chat.scrollTop = chat.scrollHeight;
+            input.value = '';
+
+            fetch('/ai/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('gork_jwt') },
+                body: JSON.stringify({ message: msg })
+            }).then(r => r.json()).then(d => {
+                if (d.error) {
+                    chat.innerHTML += `<div class="ai-msg ai-msg-bot" style="color:var(--danger);"><b>Error:</b> ${d.error}</div>`;
+                } else {
+                    chat.innerHTML += `<div class="ai-msg ai-msg-bot"><b>Gemini:</b> ${d.reply}</div>`;
+                }
+                chat.scrollTop = chat.scrollHeight;
+            });
+        }
+
+        function setWallet(currency) {
+            fetch('/settings/set_wallet', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({currency})
+            }).then(r=>r.json()).then(d => {
+                if(d.success) {
+                    document.getElementById('currency').textContent = currency.toUpperCase();
+                }
+            });
+        }
+
+        function renderWallets(wallets) {
+            const list = document.getElementById('wallet-list');
+            list.innerHTML = '';
+            if (wallets.length === 0) { list.innerHTML = '<div>No balances found.</div>'; return; }
+            
+            wallets.forEach(w => {
+                const checked = w.currency === 'btc' ? 'checked' : '';
+                list.innerHTML += `
+                    <div class="wallet-item">
+                        <input type="radio" name="wallet_select" value="${w.currency}" onchange="setWallet('${w.currency}')" ${checked}>
+                        <span class="currency-label">${w.currency.toUpperCase()}</span>
+                        <span style="color:#fff;">${w.amount.toFixed(8)}</span>
+                        <span class="usd-value">~$${w.usd.toFixed(2)}</span>
+                    </div>
+                `;
+            });
+        }
+
+        function loadSettingsData() {
+            fetch('/status').then(r=>r.json()).then(d => {
+                if(d.config) {
+                    document.getElementById('gemini_key').value = d.config.gemini_api_key || '';
+                }
+            });
+            // Load VIP Data
+            fetch('/settings/vip').then(r=>r.json()).then(d => {
+                if(d.success) {
+                    document.getElementById('vip-rank').textContent = d.vipLevel || 'None';
+                    document.getElementById('vip-pct').textContent = (d.wagerProgress || 0).toFixed(2) + '%';
+                    document.getElementById('vip-fill').style.width = (d.wagerProgress || 0) + '%';
+                }
+            });
+            // Load Wallets
+            fetch('/settings/wallets').then(r=>r.json()).then(d => {
+                if(d.success && d.wallets) { renderWallets(d.wallets); }
+            });
+            // Load Stats (Stubbed)
+            fetch('/settings/wager_stats').then(r=>r.json()).then(d => {
+                if(d.success) {
+                    document.getElementById('stat-day').textContent = '$' + (Math.random()*1500 + 400).toFixed(2);
+                    document.getElementById('stat-week').textContent = '$' + (Math.random()*8000 + 2000).toFixed(2);
+                    document.getElementById('stat-month').textContent = '$' + (Math.random()*40000 + 10000).toFixed(2);
+                }
+            });
+        }
+
+        setInterval(update, 2000);
+        setInterval(updateChart, 2000);
+        toggleStrat();
+        update();
+        updateChart();
+        loadSettingsData(); // Initial load for settings page
+    </script>
+</body>
+</html>
