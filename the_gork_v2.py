@@ -951,97 +951,94 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Gork — v2.0</title>
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-    <script src="https://unpkg.com/lightweight-charts@3.8.0/dist/lightweight-charts.standalone.production.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.2/ace.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;600;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.js"></script>
+    <!-- GridStack CSS & JS for BitMEX Drag & Drop Layout -->
+    <link href="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack.min.css" rel="stylesheet"/>
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack-all.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Roboto+Mono:wght@400;700&display=swap');
+        
         :root {
-            --bg: #0b0c10;
-            --surface: #1f2833;
-            --primary: #66fcf1;
-            --secondary: #45a29e;
-            --text: #c5c6c7;
-            --danger: #ff4757;
-            --success: #2ed573;
+            --bg: #121212; /* BitMEX Charcoal */
+            --surface: #1e1e1e; /* Widget Background */
+            --primary: #00ff00; /* Neon Profit Green */
+            --secondary: #888888;
+            --danger: #ff4d4d; /* Neon Loss Red */
+            --success: #00ff00;
+            --text: #ffffff;
         }
-        body { 
-            font-family: 'Inter', sans-serif; 
-            background: var(--bg); color: var(--text); 
-            margin: 0; padding: 2rem; 
-        }
-        h1 { 
-            color: var(--primary); 
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 2rem;
+            min-height: 100vh;
+        }    color: var(--primary); 
             font-family: 'Roboto Mono', monospace; 
             font-size: 2.2rem;
-            text-shadow: 0 0 10px rgba(102, 252, 241, 0.3);
+            text-shadow: 0 0 10px rgba(0, 255, 0, 0.3); /* Adjusted for green primary */
             margin-bottom: 2rem;
         }
         
         /* Tabs */
-        .tabs { display: flex; border-bottom: 1px solid rgba(102, 252, 241, 0.3); margin-bottom: 2rem; }
-        .tab-btn { 
-            background: transparent; border-radius: 0; box-shadow: none; font-size: 0.9rem;
-            padding: 1rem 1.5rem; cursor: pointer; color: var(--text); 
-            font-weight: 600; letter-spacing: 1px; transition: 0.2s;
-            border-bottom: 3px solid transparent; 
-        }
-        .tab-btn:hover { color: var(--primary); }
-        .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .tabs { display: flex; border-bottom: 1px solid rgba(0, 255, 0, 0.3); margin-bottom: 2rem; }
+        .tab-btn { background: transparent; color: var(--secondary); border-bottom: 2px solid transparent; padding: 0.8rem 1.5rem; transition: all 0.2s; font-size: 0.9rem; margin-right: 1rem; cursor: pointer; border-radius: 4px; border: 1px solid rgba(0, 255, 0, 0.2); } /* Adjusted for green primary */
+        .tab-btn.active { color: var(--primary); border: 1px solid var(--primary); background: rgba(0, 255, 0, 0.1); box-shadow: 0 0 10px rgba(0, 255, 0, 0.2); } /* Adjusted for green primary */
         
-        .tab-content { display: none; }
-        .tab-content.active { display: block; }
-        
-        .grid { display: grid; grid-template-columns: 1fr 2fr; gap: 2rem; }
-        .panel { 
-            background: rgba(31, 40, 51, 0.6); 
-            backdrop-filter: blur(12px);
-            padding: 1.5rem; 
-            border-radius: 12px; 
-            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-            border: 1px solid rgba(102, 252, 241, 0.15);
-            transition: transform 0.2s, box-shadow 0.2s;
-            cursor: grab;
-            resize: both;
-            overflow: auto;
+        .tab-content { 
+            visibility: hidden; 
+            opacity: 0; 
+            position: absolute; 
+            top: 0; left: 0; right: 0;
+            pointer-events: none;
+            transition: opacity 0.2s ease-in-out;
+            z-index: -1;
         }
-        .panel:hover { 
-            border-color: rgba(102, 252, 241, 0.3); 
-            box-shadow: 0 0 20px rgba(102, 252, 241, 0.15);
+        .tab-content.active { 
+            visibility: visible; 
+            opacity: 1; 
+            position: relative;
+            pointer-events: auto;
+            z-index: 1;
         }
-        .panel:active {
-            cursor: grabbing;
-        }
-        h3 { color: #fff; margin-top: 0; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 0.5rem; }
-        
-        .stat-row { display: flex; justify-content: space-between; align-items: center; margin: 0.8rem 0; font-family: 'Roboto Mono', monospace;}
-        .stat-value { color: var(--primary); font-weight: 600; font-size: 1.1rem; }
-        
-        .form-group { margin-bottom: 1rem; }
-        label { display: block; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; color: var(--secondary); margin-bottom: 0.4rem; }
-        input, select { 
-            width: 100%; padding: 0.6rem; 
-            background: #141a22; color: #e0e0e0; 
-            border: 1px solid rgba(102,252,241,0.2); border-radius: 6px; 
-            font-family: 'Roboto Mono', monospace;
-            box-sizing: border-box;
-            transition: all 0.2s;
-            appearance: none; -webkit-appearance: none;
-        }
-        select {
-            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%2366fcf1'/%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: right 0.75rem center;
-            padding-right: 2rem;
-        }
-        option, optgroup {
-            background: #1f2833;
-            color: #e0e0e0;
-        }
-        input:focus, select:focus { border-color: var(--primary); outline: none; box-shadow: 0 0 8px rgba(102,252,241,0.2); }
         
         .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; }
+        
+        /* GridStack Adjustments */
+        .grid-stack { width: 100%; margin-top: 1.5rem; }
+        .grid-stack-item-content {
+            background: var(--surface);
+            padding: 1.5rem; 
+            border-radius: 4px; /* Sharper Corners */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            border: 1px solid #2B2B2B; /* BitMEX crisp borders */
+            display: flex;
+            flex-direction: column;
+            overflow: auto;
+        }
+        .grid-stack-item-content:hover { 
+            border-color: #444; 
+        }
+        
+        .gs-drag-handle { cursor: grab; background: rgba(255,255,255,0.03); height: 1.5rem; margin: -1.5rem -1.5rem 1rem -1.5rem; display:flex; justify-content:center; align-items:center; border-bottom: 1px solid #2B2B2B;}
+        .gs-drag-handle::after { content: '...'; letter-spacing: 2px; color: var(--secondary); font-weight:bold; transform:translateY(-4px);}
+
+        /* Used strictly inside GridStack panels */
+        .panel { display: flex; flex-direction: column; flex-grow: 1; height: 100%; overflow: auto;}
+
+        /* Used for non-gridstack statically placed panels */
+        .static-panel { 
+            background: var(--surface);
+            padding: 1.5rem; 
+            border-radius: 4px; 
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            border: 1px solid #2B2B2B;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
         
         button { 
             padding: 0.8rem 1.6rem; 
@@ -1051,13 +1048,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
         .btn-start { background: var(--primary); color: var(--bg); }
-        .btn-start:hover { background: #fff; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(102,252,241,0.4); }
+        .btn-start:hover { background: #fff; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 255, 0, 0.4); } /* Adjusted for green primary */
         .btn-stop { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
-        .btn-stop:hover { background: rgba(255, 71, 87, 0.1); transform: translateY(-2px); }
+        .btn-stop:hover { background: rgba(255, 77, 77, 0.1); transform: translateY(-2px); } /* Adjusted for red danger */
         
         .badge { padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
-        .badge.RUNNING { background: rgba(46, 213, 115, 0.2); color: var(--success); border: 1px solid var(--success); text-shadow: 0 0 5px var(--success); }
-        .badge.PAUSED { background: rgba(255, 71, 87, 0.2); color: var(--danger); border: 1px solid var(--danger); }
+        .badge.RUNNING { background: rgba(0, 255, 0, 0.2); color: var(--success); border: 1px solid var(--success); text-shadow: 0 0 5px var(--success); } /* Adjusted for green success */
+        .badge.PAUSED { background: rgba(255, 77, 77, 0.2); color: var(--danger); border: 1px solid var(--danger); } /* Adjusted for red danger */
         
         #logs { font-family: 'Roboto Mono', monospace; font-size: 0.8rem; height: 160px; overflow-y: auto; color: var(--secondary); }
         
@@ -1078,19 +1075,19 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         }
         .sim-val { font-size: 1.8rem; font-weight: bold; color: var(--primary); margin: 0.5rem 0; font-family: 'Roboto Mono', monospace; }
         .sim-title { font-size: 0.8rem; text-transform: uppercase; color: var(--secondary); letter-spacing: 1px;}
-        .sim-danger { color: #ff4757; }
-        .sim-success { color: #2ed573; }
+        .sim-danger { color: #ff4d4d; } /* Adjusted for red danger */
+        .sim-success { color: #00ff00; } /* Adjusted for green success */
         
         /* AI Chat Styles */
         .ai-msg { margin-bottom: 0.8rem; padding: 0.5rem; border-radius: 4px; }
-        .ai-msg-user { background: rgba(102, 252, 241, 0.1); border-left: 2px solid var(--primary); }
+        .ai-msg-user { background: rgba(0, 255, 0, 0.1); border-left: 2px solid var(--primary); } /* Adjusted for green primary */
         .ai-msg-bot { background: rgba(255, 255, 255, 0.05); border-left: 2px solid var(--secondary); }
         .ai-cmd { color: var(--primary); font-family: monospace; font-weight: bold; }
 
         /* Tooltips */
         .tooltip {
             display: inline-block; cursor: pointer;
-            background: rgba(102, 252, 241, 0.2); color: var(--primary);
+            background: rgba(0, 255, 0, 0.2); color: var(--primary); /* Adjusted for green primary */
             width: 16px; height: 16px; border-radius: 50%;
             text-align: center; line-height: 16px; font-size: 0.7rem; font-weight: bold;
             margin-left: 6px; position: relative;
@@ -1111,9 +1108,9 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
 
         @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(102, 252, 241, 0.4); }
-            70% { box-shadow: 0 0 0 10px rgba(102, 252, 241, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(102, 252, 241, 0); }
+            0% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.4); } /* Adjusted for green primary */
+            70% { box-shadow: 0 0 0 10px rgba(0, 255, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); }
         }
         .running-pulse { animation: pulse 2s infinite; }
         
@@ -1124,15 +1121,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         
         /* VIP Badge & Progress */
         .vip-card {
-            border: 2px solid rgba(102, 252, 241, 0.5);
+            border: 2px solid rgba(0, 255, 0, 0.5); /* Adjusted for green primary */
             border-radius: 12px; padding: 1.5rem;
             position: relative; overflow: hidden;
-            background: linear-gradient(135deg, rgba(31,40,51,1) 0%, rgba(102,252,241,0.05) 100%);
+            background: linear-gradient(135deg, rgba(30,30,30,1) 0%, rgba(0,255,0,0.05) 100%); /* Adjusted for green primary */
         }
         .vip-badge {
             position: absolute; right: 1.5rem; top: 1.5rem;
             font-size: 3rem; color: var(--primary);
-            text-shadow: 0 0 20px rgba(102,252,241,0.6);
+            text-shadow: 0 0 20px rgba(0, 255, 0, 0.6); /* Adjusted for green primary */
             opacity: 0.9;
         }
         .progress-bg {
@@ -1168,18 +1165,18 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         .input-group button { padding: 0.6rem 1rem; }
         
         /* SortableJS drag states */
-        .sortable-ghost { opacity: 0.4; background: rgba(102, 252, 241, 0.05); }
-        .sortable-drag { box-shadow: 0 10px 30px rgba(0,0,0,0.5); cursor: grabbing !important;}
+        /* .sortable-ghost { opacity: 0.4; background: rgba(102, 252, 241, 0.05); } */ /* Removed as SortableJS is replaced */
+        /* .sortable-drag { box-shadow: 0 10px 30px rgba(0,0,0,0.5); cursor: grabbing !important;} */ /* Removed as SortableJS is replaced */
 
         /* Mobile Responsiveness (iPhone 16 Plus max approx 430px) */
         @media (max-width: 768px) {
             body { padding: 1rem; }
             h1 { font-size: 1.6rem; margin-bottom: 1rem; }
-            .grid, .settings-grid, .sim-grid { grid-template-columns: 1fr; gap: 1rem; }
+            .grid-stack, .settings-grid, .sim-grid { grid-template-columns: 1fr; gap: 1rem; } /* Changed .grid to .grid-stack */
             .config-grid { grid-template-columns: 1fr; }
             .tabs { overflow-x: auto; white-space: nowrap; padding-bottom: 0.5rem; border-bottom: none; }
-            .tab-btn { padding: 0.6rem 1rem; font-size: 0.8rem; border: 1px solid rgba(102, 252, 241, 0.2); border-radius: 4px; margin-right: 0.5rem; margin-bottom: 0.5rem;}
-            .tab-btn.active { background: rgba(102, 252, 241, 0.1); }
+            .tab-btn { padding: 0.6rem 1rem; font-size: 0.8rem; border: 1px solid rgba(0, 255, 0, 0.2); border-radius: 4px; margin-right: 0.5rem; margin-bottom: 0.5rem;} /* Adjusted for green primary */
+            .tab-btn.active { background: rgba(0, 255, 0, 0.1); } /* Adjusted for green primary */
             .panel { padding: 1rem; resize: none !important; }
             .stat-row { font-size: 0.9rem; flex-wrap: wrap; }
             .chart-container { height: 40vh; }
@@ -1218,13 +1215,13 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             letter-spacing: 1px;
         }
         .tower-tile.safe {
-            background: rgba(46, 213, 115, 0.15);
+            background: rgba(0, 255, 0, 0.15); /* Adjusted for green success */
             border-color: var(--success);
             color: var(--success);
-            box-shadow: inset 0 0 10px rgba(46, 213, 115, 0.1);
+            box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.1); /* Adjusted for green success */
         }
         .tower-tile.egg {
-            background: rgba(255, 71, 87, 0.15);
+            background: rgba(255, 77, 77, 0.15); /* Adjusted for red danger */
             border-color: var(--danger);
             color: var(--danger);
             opacity: 0.6;
@@ -1234,7 +1231,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
 <body>
     <div id="login-overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:var(--bg); z-index:9999; display:flex; flex-direction:column; justify-content:center; align-items:center;">
         <h1 style="margin-bottom:1rem;">SYSTEM LOCKED</h1>
-        <div style="background:var(--surface); padding:2rem; border-radius:12px; border:1px solid rgba(102, 252, 241, 0.3); text-align:center;">
+        <div style="background:var(--surface); padding:2rem; border-radius:12px; border:1px solid rgba(0, 255, 0, 0.3); text-align:center;"> <!-- Adjusted for green primary -->
             <input type="password" id="login-pw" placeholder="Admin Password..." style="margin-bottom:1rem; padding:0.8rem; width:200px; display:block; text-align:center; background:rgba(0,0,0,0.5); border:1px solid var(--primary); color:#fff;">
             <button class="btn-start" onclick="submitLogin()" style="width:100%;">AUTHENTICATE</button>
             <div id="login-err" style="color:var(--danger); margin-top:1rem; display:none;">Invalid Credentials</div>
@@ -1276,30 +1273,41 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <button class="tab-btn" onclick="openTab(this, 'simulate')">BENCHMARK / SIMULATOR</button>
         <button class="tab-btn" onclick="openTab(this, 'editor')">STRATEGY EDITOR</button>
         <button class="tab-btn" onclick="openTab(this, 'dragon')">DRAGON PREDICTOR</button>
+        <button class="tab-btn" onclick="openTab(this, 'games')">🕹️ GAMES</button>
         <button class="tab-btn" onclick="openTab(this, 'settings')">⚙ VIP & SETTINGS</button>
     </div>
 
     <!-- TERMINAL TAB -->
     <div id="terminal" class="tab-content active">
-        <div class="grid">
-            <div class="panel" style="display:flex; flex-direction:column; justify-content:space-between;">
-            <div>
-                <h3>System Status <span id="status-badge" class="badge PAUSED" style="float:right;">PAUSED</span></h3>
-                <div class="stat-row"><span>Active Currency</span><span class="stat-value" id="currency">BTC</span></div>
-                <div class="stat-row"><span>Balance</span><span class="stat-value" id="balance">0.00000000</span></div>
-                <div class="stat-row"><span>Current Bet</span><span class="stat-value" id="bet">0.00000000</span></div>
-                <div class="stat-row"><span>Total Wagered</span><span class="stat-value" id="wagered">0.00</span></div>
-                <div class="stat-row"><span>Total Bets</span><span class="stat-value" id="bets">0</span></div>
+        <div class="grid-stack" id="gs-terminal">
+            
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="4" gs-h="3">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel" style="justify-content:space-between;">
+                        <div>
+                            <h3>System Status <span id="status-badge" class="badge PAUSED" style="float:right;">PAUSED</span></h3>
+                            <div class="stat-row"><span>Active Currency</span><span class="stat-value" id="currency">BTC</span></div>
+                            <div class="stat-row"><span>Balance</span><span class="stat-value" id="balance">0.00000000</span></div>
+                            <div class="stat-row"><span>Current Bet</span><span class="stat-value" id="bet">0.00000000</span></div>
+                            <div class="stat-row"><span>Total Wagered</span><span class="stat-value" id="wagered">0.00</span></div>
+                            <div class="stat-row"><span>Total Bets</span><span class="stat-value" id="bets">0</span></div>
+                        </div>
+
+                        <div style="margin-top:2rem; display:flex; gap:1rem;">
+                            <button class="btn-start" id="startBtn" onclick="startBot()">Initialize</button>
+                            <button class="btn-stop" onclick="stopBot()">Halt</button>
+                        </div>
+                    </div>
+                </div>
             </div>
 
-            <div style="margin-top:2rem; display:flex; gap:1rem;">
-                <button class="btn-start" id="startBtn" onclick="startBot()">Initialize</button>
-                <button class="btn-stop" onclick="stopBot()">Halt</button>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h3>Strategy Configuration</h3>
+            <div class="grid-stack-item" gs-x="4" gs-y="0" gs-w="8" gs-h="7" gs-no-resize="true">
+                <div class="grid-stack-item-content" style="padding:0; overflow:hidden;">
+                    <div class="gs-drag-handle" style="margin:0;"></div>
+                    <div class="panel" style="padding:0;">
+                        <h3 style="margin: 1rem;">Strategy Configuration</h3>
+                        <div style="padding: 0 1rem; overflow-y:auto; flex-grow:1;">
 
             <div class="form-group">
                 <label>Strategy Subsystem</label>
@@ -1557,7 +1565,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     <div class="form-group"><label>Custom SL % <span class="tooltip">!<span class="tooltiptext">This value can be used within your custom Python strategy.</span></span></label><input id="c_sl" type="number" step="0.1" value="-1.0"></div>
                     <div class="form-group"><label>Custom Daily Cap % <span class="tooltip">!<span class="tooltiptext">This value can be used within your custom Python strategy.</span></span></label><input id="c_daily" type="number" step="0.1" value="-1.0"></div>
                 </div>
-                <div id="dynamic_custom_params" class="config-grid" style="margin-top:1rem; border-top:1px solid rgba(102,252,241,0.1); padding-top:1rem;"></div>
+                <div id="dynamic_custom_params" class="config-grid" style="margin-top:1rem; border-top:1px solid rgba(0,255,0,0.1); padding-top:1rem;"></div> <!-- Adjusted for green primary -->
             </div>
             
             <!-- Dragon Chaser Panel -->
@@ -1597,44 +1605,54 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                         <input id="dc_nonce" type="number" placeholder="Current Nonce...">
                     </div>
                 </div>
-                <div style="margin-top:1rem; font-size:0.8rem; color:var(--secondary); background:rgba(0,0,0,0.2); padding:0.8rem; border-radius:6px; line-height:1.4;">
+                <div style="margin-top:1rem; font-size:0.8rem; color:var(--secondary); background:rgba(0,0,0,0.2); padding:0.8rem; border-radius:6px; border-left:2px solid var(--primary);"> <!-- Adjusted for green primary -->
                     <strong>HOW IT WORKS:</strong> Select your target difficulty and desired exact safe column. Make sure your Seeds and current Nonce are entered. Click "Initialize". The bot will place <strong>Minimum Dice Bets</strong> to artificially advance your Stake Nonce until it calculates a future Dragon Tower map where your selected column is 100% safe. It will then <strong>Halt</strong>, allowing you to play that exact nonce manually on Stake!
                 </div>
             </div>
         </div>
     </div>
-
-        <div class="grid" style="margin-top:2rem; grid-template-columns: 1fr 1fr;">
-            <div class="panel">
-                <h3>Execution Logs</h3>
-                <div id="logs" style="height:350px;"></div>
-            </div>
-            <div class="panel" style="display:flex; flex-direction:column;">
-                <h3>Gemini AI Controller <span class="badge" style="background:var(--primary); color:#000; font-size:0.6rem;">BETA</span></h3>
-                <div id="ai-chat" style="flex:1; min-height:280px; max-height:280px; overflow-y:auto; background:rgba(0,0,0,0.3); border-radius:4px; padding:0.8rem; margin-bottom:0.8rem; font-size:0.85rem; line-height:1.5; border:1px solid rgba(102,252,241,0.1);">
-                    <div style="color:var(--secondary); font-style:italic; opacity:0.7;">System: Ready. You can ask me to "Stop the bot", "Check P&L", or "Switch to Die Last strategy".</div>
-                </div>
-                <div style="display:flex; gap:0.5rem;">
-                    <input type="text" id="ai-input" placeholder="Command Gork via AI..." style="flex:1; border-color:rgba(102,252,241,0.3);" onkeypress="if(event.key==='Enter') sendAiMessage()">
-                    <button class="btn-start" style="padding:0.5rem 1.2rem; font-size:0.85rem;" onclick="sendAiMessage()">Send</button>
+            <div class="grid-stack-item" gs-x="0" gs-y="3" gs-w="4" gs-h="4">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Logs Output</h3>
+                        <div id="logs"></div>
+                        
+                        <!-- AI Terminal Assistant Component -->
+                        <div style="margin-top: 1rem; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 1rem;">
+                            <h4 style="margin-top:0; margin-bottom: 0.5rem; color: var(--secondary); font-size: 0.8rem;">NATURAL LANGUAGE TERMINAL</h4>
+                            <div id="ai-chat-history" style="height:120px; overflow-y:auto; margin-bottom:0.5rem; font-size:0.85rem;"></div>
+                            <div class="input-group">
+                                <input type="text" id="ai-input" placeholder="e.g. Set strategy to the gork and base bet to 0.01..." onkeypress="if(event.key === 'Enter') sendAiCommand()">
+                                <button class="btn-start" onclick="sendAiCommand()">EXE</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- CHARTING TAB -->
-    <div id="charting" class="tab-content" style="display:none;">
-        <div class="panel">
-            <h3>Live Session Analytics</h3>
-            <div class="chart-container">
-                <div id="tvchart" style="width: 100%; height: 100%; min-height:350px;"></div>
+    <div id="charting" class="tab-content" style="height:calc(100vh - 120px);">
+        <div class="grid-stack" id="gs-charting" style="height:100%;">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="12" gs-h="10">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel" style="flex-grow:1;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3>Live PnL Tracking</h3>
+                        </div>
+                        <div class="chart-container" id="tvchart" style="width: 100%; flex-grow:1; margin-top:1rem;"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 
     <!-- STRATEGY EDITOR TAB -->
-    <div id="editor" class="tab-content" style="display:none;">
-        <div class="panel">
+    <div id="editor" class="tab-content">
+        <div class="static-panel"> <!-- Changed .panel to .static-panel -->
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
                 <h3 style="border:none; margin:0;">Python Strategy Editor</h3>
                 <div style="display:flex; gap:0.5rem; align-items:center;">
@@ -1646,7 +1664,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
             <div style="font-size:0.85rem; color:var(--secondary); margin-bottom:1rem;">
                 Code your own strategy logic here. Access `balance`, `state`, `log`. Set `result = bet_amount`.
             </div>
-            <div id="ace-editor" style="height:500px; width:100%; border-radius:8px; border:1px solid rgba(102,252,241,0.2);"></div>
+            <div id="ace-editor" style="height:500px; width:100%; border-radius:8px; border:1px solid rgba(0,255,0,0.2);"></div> <!-- Adjusted for green primary -->
             <div style="margin-top:1rem; display:flex; gap:1rem; align-items:center;">
                 <button class="btn-start" onclick="saveCustomCode()">Save Strategy</button>
                 <span id="editor-status" style="font-size:0.85rem;"></span>
@@ -1655,394 +1673,459 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </div>
 
     <!-- SIMULATOR TAB -->
-    <div id="simulate" class="tab-content" style="display:none;">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem;">
+    <div id="simulate" class="tab-content">
+        <div class="grid-stack" id="gs-simulate"> <!-- Changed .grid to .grid-stack -->
 
             <!-- Left: Config Panel -->
-            <div style="display:flex; flex-direction:column; gap:2rem;">
-                <div class="panel">
-                    <h3 style="display:flex;justify-content:space-between;">
-                        <span>Benchmark Simulator</span>
-                        <span id="sim-status" class="badge PAUSED">AWAITING PARAMS</span>
-                    </h3>
-                    <div style="color:var(--secondary); font-size:0.82rem; margin-bottom:1rem; line-height:1.5; border-left:2px solid var(--primary); padding-left:0.8rem;">
-                        Uses the same HMAC-SHA256 Stake provably fair seeding as real games. All algorithm logic is identical to live — no simplifications.
-                    </div>
-
-                    <div class="form-group">
-                        <label>Strategy Algorithm</label>
-                        <select id="sim_strategy" onchange="simToggleStrat()">
-                            <option value="the_gork">THE GORK (Conservative)</option>
-                            <option value="basic">BASIC (Absolute Amount)</option>
-                            <option value="ema_cross">EMA CROSSOVER (Trend)</option>
-                            <option value="die_last">DIE LAST (Aggressive)</option>
-                            <option value="vanish_in_volume">VANISH IN VOLUME (Safe)</option>
-                            <option value="eternal_volume">ETERNAL VOLUME (Volume)</option>
-                            <option value="reverted_martingale">REVERTED MARTINGALE (Anti-Ruin)</option>
-                            <option value="wager_grind_99">WAGER GRIND 99 (Max Volume)</option>
-                            <option value="custom">CUSTOM (Your Python Code)</option>
-                        </select>
-                        <div id="sim-strat-desc" style="font-size:0.78rem; color:var(--secondary); margin-top:0.5rem; padding:0.5rem; background:rgba(0,0,0,0.2); border-radius:4px; border-left:2px solid var(--primary);"></div>
-                    </div>
-
-                    <div class="config-grid">
-                        <div class="form-group">
-                            <label>Starting Balance <span class="tooltip">!<span class="tooltiptext">The virtual bankroll the simulation starts with. Does not use real funds.</span></span></label>
-                            <input type="number" id="sim_balance" value="1000.00" step="1">
-                        </div>
-                        <div class="form-group">
-                            <label>Bet Count <span class="tooltip">!<span class="tooltiptext">Number of individual dice bets to simulate. Higher counts give more accurate long-term results.</span></span></label>
-                            <input type="number" id="sim_bets" value="10000" step="100" style="width:100%;">
-                        </div>
-                        <div class="form-group">
-                            <label>All-Time Drawdown % <span class="tooltip">!<span class="tooltiptext">Simulation halts permanently if the balance drops this % below the starting balance. Same as the real live circuit breaker.</span></span></label>
-                            <input type="number" id="sim_atcap" step="0.1" value="-8.0">
-                        </div>
-                        <div class="form-group">
-                            <label>Min Bet Floor <span class="tooltip">!<span class="tooltiptext">The smallest bet the algorithm is permitted to place. Prevents rounding errors at near-zero balances.</span></span></label>
-                            <input type="number" id="sim_floor" step="0.000001" value="0.000001">
-                        </div>
-                    </div>
-
-                    <!-- BASIC params in sim -->
-                    <div id="sim_basic_config" class="sim-strat-panel" style="display:none;">
-                        <div class="config-grid">
-                            <div class="form-group">
-                                <label>Bet Amount (Absolute)</label>
-                                <input id="s_basic_bet_amount" type="number" step="0.000001" value="0.000001">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="6" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel" style="display:flex; flex-direction:column; gap:2rem;">
+                        <div class="static-panel"> <!-- Changed .panel to .static-panel -->
+                            <h3 style="display:flex;justify-content:space-between;">
+                                <span>Benchmark Simulator</span>
+                                <span id="sim-status" class="badge PAUSED">AWAITING PARAMS</span>
+                            </h3>
+                            <div style="color:var(--secondary); font-size:0.82rem; margin-bottom:1rem; line-height:1.5; border-left:2px solid var(--primary); padding-left:0.8rem;">
+                                Uses the same HMAC-SHA256 Stake provably fair seeding as real games. All algorithm logic is identical to live — no simplifications.
                             </div>
+
                             <div class="form-group">
-                                <label>On Win Action</label>
-                                <select id="s_basic_on_win" onchange="toggleBasicMults()">
-                                    <option value="reset">Reset to Base</option>
-                                    <option value="multiply">Multiply Bet</option>
-                                    <option value="stay">Stay Same</option>
+                                <label>Strategy Algorithm</label>
+                                <select id="sim_strategy" onchange="simToggleStrat()">
+                                    <option value="the_gork">THE GORK (Conservative)</option>
+                                    <option value="basic">BASIC (Absolute Amount)</option>
+                                    <option value="ema_cross">EMA CROSSOVER (Trend)</option>
+                                    <option value="die_last">DIE LAST (Aggressive)</option>
+                                    <option value="vanish_in_volume">VANISH IN VOLUME (Safe)</option>
+                                    <option value="eternal_volume">ETERNAL VOLUME (Volume)</option>
+                                    <option value="reverted_martingale">REVERTED MARTINGALE (Anti-Ruin)</option>
+                                    <option value="wager_grind_99">WAGER GRIND 99 (Max Volume)</option>
+                                    <option value="custom">CUSTOM (Your Python Code)</option>
                                 </select>
+                                <div id="sim-strat-desc" style="font-size:0.78rem; color:var(--secondary); margin-top:0.5rem; padding:0.5rem; background:rgba(0,0,0,0.2); border-radius:4px; border-left:2px solid var(--primary);"></div>
                             </div>
-                            <div id="s_basic_win_mult_wrap" class="form-group" style="display:none;">
-                                <label>Win Multiplier</label>
-                                <input id="s_basic_win_mult" type="number" step="0.1" value="1.0">
-                            </div>
-                            <div class="form-group">
-                                <label>On Loss Action</label>
-                                <select id="s_basic_on_loss" onchange="toggleBasicMults()">
-                                    <option value="multiply">Multiply Bet (Martingale)</option>
-                                    <option value="reset">Reset to Base</option>
-                                    <option value="stay">Stay Same</option>
-                                </select>
-                            </div>
-                            <div id="s_basic_loss_mult_wrap" class="form-group">
-                                <label>Loss Multiplier</label>
-                                <input id="s_basic_loss_mult" type="number" step="0.1" value="2.0">
-                            </div>
-                            <div class="form-group"><label>Win Chance %</label><input id="s_basic_win_chance" type="number" step="0.01" value="49.50" oninput="syncWinChance('s_')"></div>
-                            <div class="form-group">
-                                <label>Target (Dice Roll)</label>
-                                <input id="s_basic_target" type="number" step="0.01" value="50.50" oninput="syncWinChance('s_')">
-                            </div>
-                            <div class="form-group">
-                                <label>Condition</label>
-                                <select id="s_basic_condition" onchange="syncWinChance('s_')">
-                                    <option value="over">Roll Over</option>
-                                    <option value="under">Roll Under</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- REVERTED params in sim -->
-                    <div id="sim_reverted_martingale_config" class="sim-strat-panel" style="display:none;">
-                        <div class="config-grid">
-                            <div class="form-group">
-                                <label>Base Bet %</label>
-                                <div class="input-with-usd">
-                                    <input type="number" id="s_rm_base" step="0.0001" value="0.0012" oninput="syncPctToUsd('s_rm_base')">
-                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
-                                    <input id="s_rm_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_rm_base')">
-                                </div>
-                            </div>
-                            <div class="form-group"><label>Session TP %</label><input type="number" id="s_rm_tp" step="0.1" value="3.0"></div>
-                            <div class="form-group"><label>Session SL %</label><input type="number" id="s_rm_sl" step="0.1" value="-8.0"></div>
-                            <div class="form-group"><label>Daily Cap %</label><input type="number" id="s_rm_daily" step="0.1" value="-10.0"></div>
-                            <div class="form-group"><label>Loss Multiplier</label><input type="number" id="s_rm_loss" step="0.1" value="0.5"></div>
-                            <div class="form-group"><label>Win Multiplier</label><input type="number" id="s_rm_win" step="0.1" value="1.0"></div>
-                        </div>
-                    </div>
-                    <!-- WAGER GRIND params in sim -->
-                    <div id="sim_wager_grind_99_config" class="sim-strat-panel" style="display:none;">
-                        <div class="config-grid">
-                            <div class="form-group">
-                                <label>Base Bet %</label>
-                                <div class="input-with-usd">
-                                    <input type="number" id="s_wg99_base" step="0.0001" value="0.05" oninput="syncPctToUsd('s_wg99_base')">
-                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
-                                    <input id="s_wg99_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_wg99_base')">
-                                </div>
-                            </div>
-                            <div class="form-group"><label>Session TP %</label><input type="number" id="s_wg99_tp" step="0.1" value="1.0"></div>
-                            <div class="form-group"><label>Session SL %</label><input type="number" id="s_wg99_sl" step="0.1" value="-15.0"></div>
-                            <div class="form-group"><label>Daily Cap %</label><input type="number" id="s_wg99_daily" step="0.1" value="-20.0"></div>
-                        </div>
-                    </div>
-                    <div id="sim_gork_config" class="sim-strat-panel">
-                        <div class="config-grid">
-                            <div class="form-group">
-                                <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">% of balance risked on the initial bet. The Gork scales up when recovering.</span></span></label>
-                                <div class="input-with-usd">
-                                    <input type="number" id="s_g_base" step="0.0001" value="0.0012" oninput="syncPctToUsd('s_g_base')">
-                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
-                                    <input id="s_g_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_g_base')">
-                                </div>
-                            </div>
-                            <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Stops the session and resets when your balance is up this % from session start.</span></span></label><input type="number" id="s_g_tp" step="0.1" value="3.0"></div>
-                            <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Stops the session if drawdown exceeds this % from session start. Protects against deep holes.</span></span></label><input type="number" id="s_g_sl" step="0.1" value="-1.4"></div>
-                            <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Circuit breaker: locks bot for 24h if daily P&L drops below this threshold.</span></span></label><input type="number" id="s_g_daily" step="0.1" value="-1.8"></div>
-                        </div>
-                    </div>
-                    <!-- EMA params in sim -->
-                    <div id="sim_ema_config" class="sim-strat-panel" style="display:none;">
-                        <div class="config-grid">
-                            <div class="form-group">
-                                <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Fractional balance bet per iteration. EMA signal adjusts Over/Under direction, not size.</span></span></label>
-                                <div class="input-with-usd">
-                                    <input type="number" id="s_ema_base" step="0.0001" value="0.0012" oninput="syncPctToUsd('s_ema_base')">
-                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
-                                    <input id="s_ema_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_ema_base')">
-                                </div>
-                            </div>
-                            <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Target profit threshold to auto-exit the session.</span></span></label><input type="number" id="s_ema_tp" step="0.1" value="2.0"></div>
-                            <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Session stop-loss. Exits when drawdown from session start exceeds this %.</span></span></label><input type="number" id="s_ema_sl" step="0.1" value="-1.2"></div>
-                            <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">24-hour global loss cap. Halts all activity for the rest of the day.</span></span></label><input type="number" id="s_ema_daily" step="0.1" value="-2.0"></div>
-                        </div>
-                    </div>
-                    <!-- DIE LAST params in sim -->
-                    <div id="sim_die_last_config" class="sim-strat-panel" style="display:none;">
-                        <div class="config-grid">
-                            <div class="form-group">
-                                <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Higher base bet — Die Last runs aggressive 2.5x streak multipliers so start conservatively.</span></span></label>
-                                <div class="input-with-usd">
-                                    <input type="number" id="s_dl_base" step="0.0001" value="0.005" oninput="syncPctToUsd('s_dl_base')">
-                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
-                                    <input id="s_dl_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_dl_base')">
-                                </div>
-                            </div>
-                            <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Higher TP target required since Die Last streaks up aggressively to reach it.</span></span></label><input type="number" id="s_dl_tp" step="0.1" value="8.0"></div>
-                            <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Tight stop-loss limits damage from sustained losing runs before a streak resets.</span></span></label><input type="number" id="s_dl_sl" step="0.1" value="-3.5"></div>
-                            <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Hard daily ceiling — activates 24h lockout if cumulative daily loss exceeds this.</span></span></label><input type="number" id="s_dl_daily" step="0.1" value="-5.0"></div>
-                        </div>
-                    </div>
-                    <!-- VANISH params in sim -->
-                    <div id="sim_vanish_config" class="sim-strat-panel" style="display:none;">
-                        <div class="config-grid">
-                            <div class="form-group">
-                                <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Ultra-low base bet. Vanish dynamically shrinks this further during drawdown phases.</span></span></label>
-                                <div class="input-with-usd">
-                                    <input type="number" id="s_v_base" step="0.0001" value="0.0015" oninput="syncPctToUsd('s_v_base')">
-                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
-                                    <input id="s_v_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_v_base')">
-                                </div>
-                            </div>
-                            <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Target profit to exit the session. Vanish reaches this slowly but safely.</span></span></label><input type="number" id="s_v_tp" step="0.1" value="3.5"></div>
-                            <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Defense threshold — stops the session to prevent the shrink factor from reducing bets too far.</span></span></label><input type="number" id="s_v_sl" step="0.1" value="-2.0"></div>
-                            <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Daily lockout threshold. Conservative — Vanish prioritises capital preservation.</span></span></label><input type="number" id="s_v_daily" step="0.1" value="-1.5"></div>
-                        </div>
-                    </div>
-                    <!-- ETERNAL params in sim -->
-                    <div id="sim_eternal_config" class="sim-strat-panel" style="display:none;">
-                        <div class="config-grid">
-                            <div class="form-group">
-                                <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Flat fractional per-bet. Eternal recalculates this from your current balance every single bet.</span></span></label>
-                                <div class="input-with-usd">
-                                    <input type="number" id="s_e_base" step="0.0001" value="0.0012" oninput="syncPctToUsd('s_e_base')">
-                                    <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
-                                    <input id="s_e_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_e_base')">
-                                </div>
-                            </div>
-                            <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Soft profit target. Eternal exits fast — favours volume over large sessions.</span></span></label><input type="number" id="s_e_tp" step="0.1" value="3.0"></div>
-                            <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Very tight stop. Flat sizing means losses accumulate slowly; exit quickly.</span></span></label><input type="number" id="s_e_sl" step="0.1" value="-1.4"></div>
-                            <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Daily lockout. Should be set loosely since Eternal runs very many small sessions per day.</span></span></label><input type="number" id="s_e_daily" step="0.1" value="-2.5"></div>
-                        </div>
-                    </div>
-                    <div id="sim_custom_config" class="sim-strat-panel" style="display:none;">
-                        <div class="config-grid">
-                            <div class="form-group">
-                                <label>Custom Base % <span class="tooltip">!<span class="tooltiptext">Base bet parameter for your custom code.</span></span></label>
-                                <input type="number" id="s_c_base" step="0.0001" value="0.001">
-                            </div>
-                            <div class="form-group"><label>Custom TP %</label><input type="number" id="s_c_tp" step="0.1" value="2.0"></div>
-                            <div class="form-group"><label>Custom SL %</label><input type="number" id="s_c_sl" step="0.1" value="-1.0"></div>
-                            <div class="form-group"><label>Custom Daily Cap %</label><input type="number" id="s_c_daily" step="0.1" value="-1.0"></div>
-                        </div>
-                        <div id="sim_dynamic_custom_params" class="config-grid" style="margin-top:1rem; border-top:1px solid rgba(102,252,241,0.1); padding-top:1rem;"></div>
-                    </div>
 
-                    <button class="btn-start" style="width:100%;margin-top:1rem;font-size:1.05rem;padding:0.9rem;" onclick="runSimulation()">▶ Execute Simulation (HMAC Seeded)</button>
-                </div>
+                            <div class="config-grid">
+                                <div class="form-group">
+                                    <label>Starting Balance <span class="tooltip">!<span class="tooltiptext">The virtual bankroll the simulation starts with. Does not use real funds.</span></span></label>
+                                    <input type="number" id="sim_balance" value="1000.00" step="1">
+                                </div>
+                                <div class="form-group">
+                                    <label>Bet Count <span class="tooltip">!<span class="tooltiptext">Number of individual dice bets to simulate. Higher counts give more accurate long-term results.</span></span></label>
+                                    <input type="number" id="sim_bets" value="10000" step="100" style="width:100%;">
+                                </div>
+                                <div class="form-group">
+                                    <label>All-Time Drawdown % <span class="tooltip">!<span class="tooltiptext">Simulation halts permanently if the balance drops this % below the starting balance. Same as the real live circuit breaker.</span></span></label>
+                                    <input type="number" id="sim_atcap" step="0.1" value="-8.0">
+                                </div>
+                                <div class="form-group">
+                                    <label>Min Bet Floor <span class="tooltip">!<span class="tooltiptext">The smallest bet the algorithm is permitted to place. Prevents rounding errors at near-zero balances.</span></span></label>
+                                    <input type="number" id="sim_floor" step="0.000001" value="0.000001">
+                                </div>
+                            </div>
 
-                <!-- Saved Presets Panel -->
-                <div class="panel">
-                    <h3>Saved Strategy Presets</h3>
-                    <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
-                        <input type="text" id="preset_name" placeholder="Preset name..." style="flex:1;">
-                        <button class="btn-start" style="padding:0.5rem 1rem;font-size:0.85rem;" onclick="savePreset()">Save</button>
+                            <!-- BASIC params in sim -->
+                            <div id="sim_basic_config" class="sim-strat-panel" style="display:none;">
+                                <div class="config-grid">
+                                    <div class="form-group">
+                                        <label>Bet Amount (Absolute)</label>
+                                        <input id="s_basic_bet_amount" type="number" step="0.000001" value="0.000001">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>On Win Action</label>
+                                        <select id="s_basic_on_win" onchange="toggleBasicMults()">
+                                            <option value="reset">Reset to Base</option>
+                                            <option value="multiply">Multiply Bet</option>
+                                            <option value="stay">Stay Same</option>
+                                        </select>
+                                    </div>
+                                    <div id="s_basic_win_mult_wrap" class="form-group" style="display:none;">
+                                        <label>Win Multiplier</label>
+                                        <input id="s_basic_win_mult" type="number" step="0.1" value="1.0">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>On Loss Action</label>
+                                        <select id="s_basic_on_loss" onchange="toggleBasicMults()">
+                                            <option value="multiply">Multiply Bet (Martingale)</option>
+                                            <option value="reset">Reset to Base</option>
+                                            <option value="stay">Stay Same</option>
+                                        </select>
+                                    </div>
+                                    <div id="s_basic_loss_mult_wrap" class="form-group">
+                                        <label>Loss Multiplier</label>
+                                        <input id="s_basic_loss_mult" type="number" step="0.1" value="2.0">
+                                    </div>
+                                    <div class="form-group"><label>Win Chance %</label><input id="s_basic_win_chance" type="number" step="0.01" value="49.50" oninput="syncWinChance('s_')"></div>
+                                    <div class="form-group">
+                                        <label>Target (Dice Roll)</label>
+                                        <input id="s_basic_target" type="number" step="0.01" value="50.50" oninput="syncWinChance('s_')">
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Condition</label>
+                                        <select id="s_basic_condition" onchange="syncWinChance('s_')">
+                                            <option value="over">Roll Over</option>
+                                            <option value="under">Roll Under</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- REVERTED params in sim -->
+                            <div id="sim_reverted_martingale_config" class="sim-strat-panel" style="display:none;">
+                                <div class="config-grid">
+                                    <div class="form-group">
+                                        <label>Base Bet %</label>
+                                        <div class="input-with-usd">
+                                            <input type="number" id="s_rm_base" step="0.0001" value="0.0012" oninput="syncPctToUsd('s_rm_base')">
+                                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                            <input id="s_rm_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_rm_base')">
+                                        </div>
+                                    </div>
+                                    <div class="form-group"><label>Session TP %</label><input type="number" id="s_rm_tp" step="0.1" value="3.0"></div>
+                                    <div class="form-group"><label>Session SL %</label><input type="number" id="s_rm_sl" step="0.1" value="-8.0"></div>
+                                    <div class="form-group"><label>Daily Cap %</label><input type="number" id="s_rm_daily" step="0.1" value="-10.0"></div>
+                                    <div class="form-group"><label>Loss Multiplier</label><input type="number" id="s_rm_loss" step="0.1" value="0.5"></div>
+                                    <div class="form-group"><label>Win Multiplier</label><input type="number" id="s_rm_win" step="0.1" value="1.0"></div>
+                                </div>
+                            </div>
+                            <!-- WAGER GRIND params in sim -->
+                            <div id="sim_wager_grind_99_config" class="sim-strat-panel" style="display:none;">
+                                <div class="config-grid">
+                                    <div class="form-group">
+                                        <label>Base Bet %</label>
+                                        <div class="input-with-usd">
+                                            <input type="number" id="s_wg99_base" step="0.0001" value="0.05" oninput="syncPctToUsd('s_wg99_base')">
+                                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                            <input id="s_wg99_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_wg99_base')">
+                                        </div>
+                                    </div>
+                                    <div class="form-group"><label>Session TP %</label><input type="number" id="s_wg99_tp" step="0.1" value="1.0"></div>
+                                    <div class="form-group"><label>Session SL %</label><input type="number" id="s_wg99_sl" step="0.1" value="-15.0"></div>
+                                    <div class="form-group"><label>Daily Cap %</label><input type="number" id="s_wg99_daily" step="0.1" value="-20.0"></div>
+                                </div>
+                            </div>
+                            <div id="sim_gork_config" class="sim-strat-panel">
+                                <div class="config-grid">
+                                    <div class="form-group">
+                                        <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">% of balance risked on the initial bet. The Gork scales up when recovering.</span></span></label>
+                                        <div class="input-with-usd">
+                                            <input type="number" id="s_g_base" step="0.0001" value="0.0012" oninput="syncPctToUsd('s_g_base')">
+                                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                            <input id="s_g_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_g_base')">
+                                        </div>
+                                    </div>
+                                    <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Stops the session and resets when your balance is up this % from session start.</span></span></label><input type="number" id="s_g_tp" step="0.1" value="3.0"></div>
+                                    <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Stops the session if drawdown exceeds this % from session start. Protects against deep holes.</span></span></label><input type="number" id="s_g_sl" step="0.1" value="-1.4"></div>
+                                    <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Circuit breaker: locks bot for 24h if daily P&L drops below this threshold.</span></span></label><input type="number" id="s_g_daily" step="0.1" value="-1.8"></div>
+                                </div>
+                            </div>
+                            <!-- EMA params in sim -->
+                            <div id="sim_ema_config" class="sim-strat-panel" style="display:none;">
+                                <div class="config-grid">
+                                    <div class="form-group">
+                                        <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Fractional balance bet per iteration. EMA signal adjusts Over/Under direction, not size.</span></span></label>
+                                        <div class="input-with-usd">
+                                            <input type="number" id="s_ema_base" step="0.0001" value="0.0012" oninput="syncPctToUsd('s_ema_base')">
+                                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                            <input id="s_ema_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_ema_base')">
+                                        </div>
+                                    </div>
+                                    <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Target profit threshold to auto-exit the session.</span></span></label><input type="number" id="s_ema_tp" step="0.1" value="2.0"></div>
+                                    <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Session stop-loss. Exits when drawdown from session start exceeds this %.</span></span></label><input type="number" id="s_ema_sl" step="0.1" value="-1.2"></div>
+                                    <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">24-hour global loss cap. Halts all activity for the rest of the day.</span></span></label><input type="number" id="s_ema_daily" step="0.1" value="-2.0"></div>
+                                </div>
+                            </div>
+                            <!-- DIE LAST params in sim -->
+                            <div id="sim_die_last_config" class="sim-strat-panel" style="display:none;">
+                                <div class="config-grid">
+                                    <div class="form-group">
+                                        <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Higher base bet — Die Last runs aggressive 2.5x streak multipliers so start conservatively.</span></span></label>
+                                        <div class="input-with-usd">
+                                            <input type="number" id="s_dl_base" step="0.0001" value="0.005" oninput="syncPctToUsd('s_dl_base')">
+                                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                            <input id="s_dl_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_dl_base')">
+                                        </div>
+                                    </div>
+                                    <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Higher TP target required since Die Last streaks up aggressively to reach it.</span></span></label><input type="number" id="s_dl_tp" step="0.1" value="8.0"></div>
+                                    <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Tight stop-loss limits damage from sustained losing runs before a streak resets.</span></span></label><input type="number" id="s_dl_sl" step="0.1" value="-3.5"></div>
+                                    <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Hard daily ceiling — activates 24h lockout if cumulative daily loss exceeds this.</span></span></label><input type="number" id="s_dl_daily" step="0.1" value="-5.0"></div>
+                                </div>
+                            </div>
+                            <!-- VANISH params in sim -->
+                            <div id="sim_vanish_config" class="sim-strat-panel" style="display:none;">
+                                <div class="config-grid">
+                                    <div class="form-group">
+                                        <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Ultra-low base bet. Vanish dynamically shrinks this further during drawdown phases.</span></span></label>
+                                        <div class="input-with-usd">
+                                            <input type="number" id="s_v_base" step="0.0001" value="0.0015" oninput="syncPctToUsd('s_v_base')">
+                                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                            <input id="s_v_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_v_base')">
+                                        </div>
+                                    </div>
+                                    <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Target profit to exit the session. Vanish reaches this slowly but safely.</span></span></label><input type="number" id="s_v_tp" step="0.1" value="3.5"></div>
+                                    <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Defense threshold — stops the session to prevent the shrink factor from reducing bets too far.</span></span></label><input type="number" id="s_v_sl" step="0.1" value="-2.0"></div>
+                                    <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Daily lockout threshold. Conservative — Vanish prioritises capital preservation.</span></span></label><input type="number" id="s_v_daily" step="0.1" value="-1.5"></div>
+                                </div>
+                            </div>
+                            <!-- ETERNAL params in sim -->
+                            <div id="sim_eternal_config" class="sim-strat-panel" style="display:none;">
+                                <div class="config-grid">
+                                    <div class="form-group">
+                                        <label>Base Bet % <span class="tooltip">!<span class="tooltiptext">Flat fractional per-bet. Eternal recalculates this from your current balance every single bet.</span></span></label>
+                                        <div class="input-with-usd">
+                                            <input type="number" id="s_e_base" step="0.0001" value="0.0012" oninput="syncPctToUsd('s_e_base')">
+                                            <span style="color:var(--secondary);font-size:0.75rem;">≈</span>
+                                            <input id="s_e_base_usd" class="input-usd-helper" type="number" step="0.01" placeholder="$ USD" oninput="syncUsdToPct('s_e_base')">
+                                        </div>
+                                    </div>
+                                    <div class="form-group"><label>Session TP % <span class="tooltip">!<span class="tooltiptext">Soft profit target. Eternal exits fast — favours volume over large sessions.</span></span></label><input type="number" id="s_e_tp" step="0.1" value="3.0"></div>
+                                    <div class="form-group"><label>Session SL % <span class="tooltip">!<span class="tooltiptext">Very tight stop. Flat sizing means losses accumulate slowly; exit quickly.</span></span></label><input type="number" id="s_e_sl" step="0.1" value="-1.4"></div>
+                                    <div class="form-group"><label>Daily Cap % <span class="tooltip">!<span class="tooltiptext">Daily lockout. Should be set loosely since Eternal runs very many small sessions per day.</span></span></label><input type="number" id="s_e_daily" step="0.1" value="-2.5"></div>
+                                </div>
+                            </div>
+                            <div id="sim_custom_config" class="sim-strat-panel" style="display:none;">
+                                <div class="config-grid">
+                                    <div class="form-group">
+                                        <label>Custom Base % <span class="tooltip">!<span class="tooltiptext">Base bet parameter for your custom code.</span></span></label>
+                                        <input type="number" id="s_c_base" step="0.0001" value="0.001">
+                                    </div>
+                                    <div class="form-group"><label>Custom TP %</label><input type="number" id="s_c_tp" step="0.1" value="2.0"></div>
+                                    <div class="form-group"><label>Custom SL %</label><input type="number" id="s_c_sl" step="0.1" value="-1.0"></div>
+                                    <div class="form-group"><label>Custom Daily Cap %</label><input type="number" id="s_c_daily" step="0.1" value="-1.0"></div>
+                                </div>
+                                <div id="sim_dynamic_custom_params" class="config-grid" style="margin-top:1rem; border-top:1px solid rgba(0,255,0,0.1); padding-top:1rem;"></div> <!-- Adjusted for green primary -->
+                            </div>
+
+                            <button class="btn-start" style="width:100%;margin-top:1rem;font-size:1.05rem;padding:0.9rem;" onclick="runSimulation()">▶ Execute Simulation (HMAC Seeded)</button>
+                        </div>
+
+                        <!-- Saved Presets Panel -->
+                        <div class="static-panel"> <!-- Changed .panel to .static-panel -->
+                            <h3>Saved Strategy Presets</h3>
+                            <div style="display:flex;gap:0.5rem;margin-bottom:1rem;">
+                                <input type="text" id="preset_name" placeholder="Preset name..." style="flex:1;">
+                                <button class="btn-start" style="padding:0.5rem 1rem;font-size:0.85rem;" onclick="savePreset()">Save</button>
+                            </div>
+                            <div id="preset-list" style="display:flex;flex-direction:column;gap:0.5rem;"></div>
+                        </div>
                     </div>
-                    <div id="preset-list" style="display:flex;flex-direction:column;gap:0.5rem;"></div>
                 </div>
             </div>
 
             <!-- Right: Results Panel -->
-            <div class="panel" style="align-self:start;">
-                <h3>Benchmark / Simulator v2.0</h3>
-                <!-- Equity Curve Chart -->
-                <div id="sim-chart-wrap" style="height:300px; width:100%; margin-bottom:1.5rem; border-radius:8px; overflow:hidden; border:1px solid rgba(102,252,241,0.1); display:none;">
-                    <div id="sim-chart" style="width:100%;height:100%;"></div>
+            <div class="grid-stack-item" gs-x="6" gs-y="0" gs-w="6" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel" style="align-self:start;">
+                        <h3>Benchmark / Simulator v2.0</h3>
+                        <!-- Equity Curve Chart -->
+                        <div id="sim-chart-wrap" style="height:300px; width:100%; margin-bottom:1.5rem; border-radius:8px; overflow:hidden; border:1px solid rgba(0,255,0,0.1); display:none;"> <!-- Adjusted for green primary -->
+                            <div id="sim-chart" style="width:100%;height:100%;"></div>
+                        </div>
+                        <div class="sim-grid" style="grid-template-columns:1fr 1fr;">
+                            <div class="sim-stat"><div class="sim-title">Final Balance</div><div class="sim-val" id="res-bal">$1000.00</div></div>
+                            <div class="sim-stat"><div class="sim-title">Net P&L</div><div class="sim-val" id="res-pnl">$0.00</div></div>
+                            <div class="sim-stat"><div class="sim-title">Total Wagered</div><div class="sim-val" id="res-wager">$0.00</div></div>
+                            <div class="sim-stat"><div class="sim-title">Win Rate</div><div class="sim-val" id="res-wr">0.00%</div></div>
+                            <div class="sim-stat"><div class="sim-title">Worst Drawdown</div><div class="sim-val sim-danger" id="res-dd">0.00%</div></div>
+                            <div class="sim-stat"><div class="sim-title">Peak Balance</div><div class="sim-val sim-success" id="res-peak">$1000.00</div></div>
+                            <div class="sim-stat"><div class="sim-title">Wins / Losses</div><div class="sim-val" style="color:#fff;font-size:1.1rem;" id="res-wl">0 / 0</div></div>
+                            <div class="sim-stat"><div class="sim-title">Circuit Breakers</div><div class="sim-val" style="color:#f1c40f;" id="res-cb">0</div></div>
+                        </div>
+                        <div id="sim-summary" style="margin-top:1.5rem; padding:1rem; background:rgba(0,0,0,0.3); border-radius:8px; font-size:0.85rem; line-height:1.8; color:var(--text); display:none;"></div>
+                    </div>
                 </div>
-                <div class="sim-grid" style="grid-template-columns:1fr 1fr;">
-                    <div class="sim-stat"><div class="sim-title">Final Balance</div><div class="sim-val" id="res-bal">$1000.00</div></div>
-                    <div class="sim-stat"><div class="sim-title">Net P&L</div><div class="sim-val" id="res-pnl">$0.00</div></div>
-                    <div class="sim-stat"><div class="sim-title">Total Wagered</div><div class="sim-val" id="res-wager">$0.00</div></div>
-                    <div class="sim-stat"><div class="sim-title">Win Rate</div><div class="sim-val" id="res-wr">0.00%</div></div>
-                    <div class="sim-stat"><div class="sim-title">Worst Drawdown</div><div class="sim-val sim-danger" id="res-dd">0.00%</div></div>
-                    <div class="sim-stat"><div class="sim-title">Peak Balance</div><div class="sim-val sim-success" id="res-peak">$1000.00</div></div>
-                    <div class="sim-stat"><div class="sim-title">Wins / Losses</div><div class="sim-val" style="color:#fff;font-size:1.1rem;" id="res-wl">0 / 0</div></div>
-                    <div class="sim-stat"><div class="sim-title">Circuit Breakers</div><div class="sim-val" style="color:#f1c40f;" id="res-cb">0</div></div>
-                </div>
-                <div id="sim-summary" style="margin-top:1.5rem; padding:1rem; background:rgba(0,0,0,0.3); border-radius:8px; font-size:0.85rem; line-height:1.8; color:var(--text); display:none;"></div>
             </div>
         </div>
     </div>
 
     <!-- DRAGON TOWER TAB -->
-    <div id="dragon" class="tab-content" style="display:none;">
-        <div class="grid">
-            <div class="panel">
-                <h3>Dragon Predictor Config</h3>
-                <div class="form-group">
-                    <label>Server Seed (Actual or Hash)</label>
-                    <input id="dt_server_seed" type="text" placeholder="Paste server seed...">
-                </div>
-                <div class="form-group">
-                    <label>Client Seed</label>
-                    <input id="dt_client_seed" type="text" placeholder="Paste client seed...">
-                </div>
-                <div class="form-group">
-                    <label>Nonce</label>
-                    <input id="dt_nonce" type="number" value="0">
-                </div>
-                <div class="form-group">
-                    <label>Difficulty</label>
-                    <select id="dt_difficulty" onchange="predictDragon()">
-                        <option value="easy">EASY (4 tiles, 3 safe)</option>
-                        <option value="medium">MEDIUM (3 tiles, 2 safe)</option>
-                        <option value="hard">HARD (2 tiles, 1 safe)</option>
-                        <option value="expert">EXPERT (3 tiles, 1 safe)</option>
-                        <option value="master">MASTER (4 tiles, 1 safe)</option>
-                    </select>
-                </div>
-                <button class="btn-start" style="width:100%; margin-top:1rem;" onclick="predictDragon()">GENERATE TOWER MAP</button>
-                
-                <div style="margin-top:2rem; padding:1.2rem; border:1px solid rgba(255, 71, 87, 0.3); border-radius:12px; background:rgba(255, 71, 87, 0.05); border-left-width: 5px;">
-                    <h4 style="color:var(--danger); margin:0 0 0.5rem 0; font-family:'Roboto Mono',monospace;">⚠ SECURITY ADVISORY</h4>
-                    <p style="font-size:0.8rem; color:var(--text); line-height:1.5; margin:0;">
-                        The "hack scripts" found in public repositories are typically <b>Session Hijackers</b> designed to steal your account tokens when pasted into the browser console. 
-                        This tool uses the official <b>Provably Fair</b> HMAC-SHA256 algorithm locally on your machine to reveal the tower configuration safely.
-                    </p>
+    <div id="dragon" class="tab-content">
+        <div class="grid-stack" id="gs-dragon"> <!-- Changed .grid to .grid-stack -->
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="6" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Dragon Predictor Config</h3>
+                        <div class="form-group">
+                            <label>Server Seed (Actual or Hash)</label>
+                            <input id="dt_server_seed" type="text" placeholder="Paste server seed...">
+                        </div>
+                        <div class="form-group">
+                            <label>Client Seed</label>
+                            <input id="dt_client_seed" type="text" placeholder="Paste client seed...">
+                        </div>
+                        <div class="form-group">
+                            <label>Nonce</label>
+                            <input id="dt_nonce" type="number" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Difficulty</label>
+                            <select id="dt_difficulty" onchange="predictDragon()">
+                                <option value="easy">EASY (4 tiles, 3 safe)</option>
+                                <option value="medium">MEDIUM (3 tiles, 2 safe)</option>
+                                <option value="hard">HARD (2 tiles, 1 safe)</option>
+                                <option value="expert">EXPERT (3 tiles, 1 safe)</option>
+                                <option value="master">MASTER (4 tiles, 1 safe)</option>
+                            </select>
+                        </div>
+                        <button class="btn-start" style="width:100%; margin-top:1rem;" onclick="predictDragon()">GENERATE TOWER MAP</button>
+                        
+                        <div style="margin-top:2rem; padding:1.2rem; border:1px solid rgba(255, 77, 77, 0.3); border-radius:12px; background:rgba(255, 77, 77, 0.05); border-left-width: 5px;"> <!-- Adjusted for red danger -->
+                            <h4 style="color:var(--danger); margin:0 0 0.5rem 0; font-family:'Roboto Mono',monospace;">⚠ SECURITY ADVISORY</h4>
+                            <p style="font-size:0.8rem; color:var(--text); line-height:1.5; margin:0;">
+                                The "hack scripts" found in public repositories are typically <b>Session Hijackers</b> designed to steal your account tokens when pasted into the browser console. 
+                                This tool uses the official <b>Provably Fair</b> HMAC-SHA256 algorithm locally on your machine to reveal the tower configuration safely.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
             
-            <div class="panel">
-                <h3>Tower Map Visualization</h3>
-                <div id="tower-viz" class="tower-grid">
-                    <div style="text-align:center; padding: 6rem 1rem; color: rgba(255,255,255,0.1); font-style: italic;">
-                        Seeded derivation results will appear here...
+            <div class="grid-stack-item" gs-x="6" gs-y="0" gs-w="6" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Tower Map Visualization</h3>
+                        <div id="tower-viz" class="tower-grid">
+                            <div style="text-align:center; padding: 6rem 1rem; color: rgba(255,255,255,0.1); font-style: italic;">
+                                Seeded derivation results will appear here...
+                            </div>
+                        </div>
+                        <div style="margin-top:1rem; text-align:center; font-size:0.7rem; color:var(--secondary);">
+                            Calculated using Fisher-Yates Shuffle & HMAC-SHA256
+                        </div>
                     </div>
-                </div>
-                <div style="margin-top:1rem; text-align:center; font-size:0.7rem; color:var(--secondary);">
-                    Calculated using Fisher-Yates Shuffle & HMAC-SHA256
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- GAMES TAB -->
+    <div id="games" class="tab-content" style="display:none;">
+        <div class="grid-stack" id="gs-games">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="4" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3 style="color:var(--primary); margin-top:0;">DICE</h3>
+                        <div class="form-group">
+                            <label>Bet Amount</label>
+                            <input type="number" id="dice_manual_bet" step="0.00000001" value="0.00000001">
+                        </div>
+                        <div class="form-group">
+                            <label>Target %</label>
+                            <input type="number" id="dice_manual_target" step="0.01" value="50.50">
+                        </div>
+                        <div class="form-group">
+                            <label>Condition</label>
+                            <select id="dice_manual_condition">
+                                <option value="over">Roll Over</option>
+                                <option value="under">Roll Under</option>
+                            </select>
+                        </div>
+                        <button class="btn-start" style="width:100%; margin-top:1rem;" onclick="playManualGame('dice')">ROLL DICE</button>
+                        <div id="dice_manual_result" style="margin-top:1rem; font-weight:bold; text-align:center;"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Coming Soon Cards -->
+            <div class="grid-stack-item" gs-x="4" gs-y="0" gs-w="4" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel" style="opacity:0.6; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                        <h3 style="border:none; margin:0; color:var(--secondary);">LIMBO</h3>
+                        <div class="badge PAUSED" style="margin-top:1rem;">API Integration Pending</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-stack-item" gs-x="8" gs-y="0" gs-w="4" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel" style="opacity:0.6; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                        <h3 style="border:none; margin:0; color:var(--secondary);">MINES</h3>
+                        <div class="badge PAUSED" style="margin-top:1rem;">API Integration Pending</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid-stack-item" gs-x="0" gs-y="4" gs-w="4" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel" style="opacity:0.6; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                        <h3 style="border:none; margin:0; color:var(--secondary);">PLINKO</h3>
+                        <div class="badge PAUSED" style="margin-top:1rem;">API Integration Pending</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="grid-stack-item" gs-x="4" gs-y="4" gs-w="4" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel" style="opacity:0.6; display:flex; flex-direction:column; justify-content:center; align-items:center;">
+                        <h3 style="border:none; margin:0; color:var(--secondary);">KENO</h3>
+                        <div class="badge PAUSED" style="margin-top:1rem;">API Integration Pending</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
     <!-- SETTINGS & VIP TAB -->
 
-    <div id="settings" class="tab-content" style="display:none;">
-        <div class="settings-grid">
+    <div id="settings" class="tab-content">
+        <div class="grid-stack" id="gs-settings"> <!-- Changed .settings-grid to .grid-stack -->
             
             <!-- Left Column: Core Settings -->
-            <div style="display:flex; flex-direction:column; gap:2rem;">
-                <div class="panel">
-                    <h3>Connection & API Key</h3>
-                    <div class="form-group">
-                        <label>Stake API Bearer Token</label>
-                        <div class="input-group">
-                            <input type="password" id="api_token" placeholder="Enter Token...">
-                            <button class="btn-start" onclick="saveApiKey()">Save & Validate</button>
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="6" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel" style="display:flex; flex-direction:column; gap:2rem;">
+                        <div class="static-panel"> <!-- Changed .panel to .static-panel -->
+                            <h3>Connection & API Key</h3>
+                            <div class="form-group">
+                                <label>Stake API Bearer Token</label>
+                                <div class="input-group">
+                                    <input type="password" id="api_token" placeholder="Enter Token...">
+                                    <button class="btn-start" onclick="saveApiKey()">Save & Validate</button>
+                                </div>
+                                <div id="api-error-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem; display: none;"></div>
+                            </div>
+                            <div style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center;">
+                                <span style="color:var(--secondary); font-size:0.9rem;">API Health Status:</span>
+                                <span id="api-health" class="badge PAUSED">WAITING</span>
+                            </div>
                         </div>
-                        <div id="api-error-msg" style="color: var(--danger); font-size: 0.8rem; margin-top: 0.5rem; display: none;"></div>
-                    </div>
-                    <div style="margin-top:1rem; display:flex; justify-content:space-between; align-items:center;">
-                        <span style="color:var(--secondary); font-size:0.9rem;">API Health Status:</span>
-                        <span id="api-health" class="badge PAUSED">WAITING</span>
-                    </div>
-                </div>
 
-                <div class="panel">
-                    <h3>Gemini AI Integration</h3>
-                    <div class="form-group">
-                        <label>Google Gemini API Key</label>
-                        <div class="input-group">
-                            <input type="password" id="gemini_key" placeholder="Paste Gemini Key...">
-                            <button class="btn-start" onclick="saveGeminiKey()">Update AI Engine</button>
+                        <div class="static-panel"> <!-- Changed .panel to .static-panel -->
+                            <h3>Gemini AI Integration</h3>
+                            <div class="form-group">
+                                <label>Google Gemini API Key</label>
+                                <div class="input-group">
+                                    <input type="password" id="gemini_key" placeholder="Paste Gemini Key...">
+                                    <button class="btn-start" onclick="saveGeminiKey()">Update AI Engine</button>
+                                </div>
+                                <div style="font-size:0.75rem; color:var(--secondary); margin-top:0.4rem;">Used for natural language terminal control.</div>
+                            </div>
                         </div>
-                        <div style="font-size:0.75rem; color:var(--secondary); margin-top:0.4rem;">Used for natural language terminal control.</div>
-                    </div>
-                </div>
 
 
-                <div class="panel">
-                    <h3>Active Wallets</h3>
-                    <div style="color:var(--secondary); font-size:0.8rem; margin-bottom:1rem;">Select active balance. Converted to USD automatically.</div>
-                    <div id="wallet-list">
-                        <!-- Populated by JS -->
-                        <div style="text-align:center; padding: 2rem; color: rgba(255,255,255,0.2);">Awaiting API...</div>
+                        <div class="static-panel"> <!-- Changed .panel to .static-panel -->
+                            <h3>Active Wallets</h3>
+                            <div style="color:var(--secondary); font-size:0.8rem; margin-bottom:1rem;">Select active balance. Converted to USD automatically.</div>
+                            <div id="wallet-list">
+                                <!-- Populated by JS -->
+                                <div style="text-align:center; padding: 2rem; color: rgba(255,255,255,0.2);">Awaiting API...</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Right Column: VIP Dashboard -->
-            <div style="display:flex; flex-direction:column; gap:2rem;">
-                <div class="panel vip-card">
-                    <h3 style="border:none; margin:0;">VIP PROGRESS</h3>
-                    <div class="vip-badge" id="vip-rank">?</div>
-                    
-                    <div style="margin-top:2rem;">
-                        <span style="font-size:1.5rem; font-weight:bold; color:#fff;" id="vip-pct">0.00%</span>
-                        <div class="progress-bg">
-                            <div class="progress-fill" id="vip-fill" style="width: 0%;"></div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="panel">
-                    <h3>Rewards & Claims</h3>
-                    <div class="claim-row">
-                        <div>
-                            <div style="font-weight:bold; color:#fff;">Rakeback</div>
-                            <div style="font-size:0.8rem; color:var(--secondary);">Available to claim!</div>
-                        </div>
-                        <button class="claim-btn">Claim</button>
-                    </div>
-                    <div class="claim-row">
-                        <div>
-                            <div style="font-weight:bold; color:#fff;">Reload</div>
-                            <div style="font-size:0.8rem; color:var(--secondary);">No Reload available.</div>
-                        </div>
-                        <button class="claim-btn disabled">Claim</button>
-                    </div>
-                    <div class="claim-row">
-                        <div>
-                            <div style="font-weight:bold; color:#fff;">Weekly Boost</div>
-                            <div style="font-size:0.8rem; color:var(--secondary);">View Details</div>
                         </div>
                         <span style="color:var(--secondary);">></span>
                     </div>
@@ -2060,15 +2143,44 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     </div>
 
     <script>
+        // GridStack Global Config
+        const gridOptions = {
+            cellHeight: 80,
+            margin: 10,
+            minRow: 1, 
+            float: true,
+            animate: true,
+            handle: '.gs-drag-handle', 
+            resizable: { handles: 's, e, se' } 
+        };
+
         // Tab Logic
         function openTab(btn, tabId) {
             document.querySelectorAll('.tab-btn').forEach(t => t.classList.remove('active'));
-            document.querySelectorAll('.tab-content').forEach(c => c.style.display = 'none');
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
             
             btn.classList.add('active');
-            document.getElementById(tabId).style.display = 'block';
+            const tabContent = document.getElementById(tabId);
+            tabContent.classList.add('active');
+            
+            // Trigger resize for Ace Editor
             if (tabId === 'editor') {
                 setTimeout(() => editor.resize(), 100);
+            }
+            
+            // Initialize or Relayout GridStack for the visible tab
+            const gridId = 'gs-' + tabId;
+            const gridEl = document.getElementById(gridId);
+            if (gridEl) {
+                if (!gridEl.gridstack) {
+                    // Lazy init if first time opening this tab
+                    gridEl.gridstack = GridStack.init(gridOptions, gridEl);
+                } else {
+                    // Force relayout now that it's visible
+                    setTimeout(() => {
+                        gridEl.gridstack.onParentResize();
+                    }, 50);
+                }
             }
         }
 
@@ -2834,16 +2946,15 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         loadSettingsData(); // Initial load for settings page
         fetchTemplates();
         
-        // Initialize Drag and Drop Panels
+        // Initialize Terminal Grid on load
         document.addEventListener('DOMContentLoaded', () => {
-            document.querySelectorAll('.grid, .settings-grid, .sim-grid').forEach(grid => {
-                new Sortable(grid, {
-                    animation: 150,
-                    ghostClass: 'sortable-ghost',
-                    dragClass: 'sortable-drag',
-                    handle: '.panel, .sim-stat'
-                });
-            });
+            const terminalGrid = document.getElementById('gs-terminal');
+            if (terminalGrid) {
+                terminalGrid.gridstack = GridStack.init(gridOptions, terminalGrid);
+            }
+            
+            // Initial Ace editor resize
+            setTimeout(() => editor.resize(), 500);
         });
     </script>
 </body>
@@ -3314,6 +3425,44 @@ def get_strategy_template(name):
     if name in STRATEGY_TEMPLATES:
         return jsonify({'code': STRATEGY_TEMPLATES[name]})
     return jsonify({'error': 'Template not found'}), 404
+
+@app.route('/api/manual_bet', methods=['POST'])
+@token_required
+def manual_bet():
+    data = request.json
+    game = data.get('game')
+    amount = float(data.get('amount', 0))
+    
+    if state['is_running']:
+        return jsonify({'error': 'Cannot place manual bets while bot is RUNNING.'}), 400
+        
+    api_key = state['config'].get('api_token')
+    if not api_key:
+        return jsonify({'error': 'API Token not configured.'}), 400
+        
+    if game == 'dice':
+        target = float(data.get('target', 50.50))
+        condition = data.get('condition', 'over')
+        currency = state['wallet']['active_coin']
+        
+        stake = Stake(api_key)
+        try:
+            res = stake.dice_roll(amount, target, condition, currency)
+            if 'errors' in res:
+                return jsonify({'error': res['errors'][0]['message']}), 400
+            if 'data' in res and 'diceRoll' in res['data']:
+                roll = res['data']['diceRoll']
+                return jsonify({
+                    'success': True,
+                    'payout': roll['payout'],
+                    'multiplier': roll['payoutMultiplier'],
+                    'amount': roll['amount']
+                })
+            return jsonify({'error': 'Invalid API response format.'}), 500
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+            
+    return jsonify({'error': f'Game {game} not supported for manual play yet.'}), 400
 
 @app.route('/settings/gemini_key', methods=['POST'])
 @token_required
