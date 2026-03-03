@@ -958,274 +958,288 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <link href="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack.min.css" rel="stylesheet"/>
     <script src="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack-all.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&family=Roboto+Mono:wght@400;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Roboto+Mono:wght@400;700&display=swap');
         
         :root {
-            --bg: #121212; /* BitMEX Charcoal */
-            --surface: #1e1e1e; /* Widget Background */
-            --primary: #00ff00; /* Neon Profit Green */
-            --secondary: #888888;
-            --danger: #ff4d4d; /* Neon Loss Red */
-            --success: #00ff00;
+            /* Core Palette - HSL for better control */
+            --bg-h: 220; --bg-s: 13%; --bg-l: 7%;
+            --bg: hsl(var(--bg-h), var(--bg-s), var(--bg-l));
+            
+            --surface-h: 220; --surface-s: 13%; --surface-l: 12%;
+            --surface: hsl(var(--surface-h), var(--surface-s), var(--surface-l));
+            
+            --primary-h: 142; --primary-s: 70%; --primary-l: 50%;
+            --primary: hsl(var(--primary-h), var(--primary-s), var(--primary-l));
+            
+            --danger-h: 0; --danger-s: 84%; --danger-l: 60%;
+            --danger: hsl(var(--danger-h), var(--danger-s), var(--danger-l));
+            
+            --warning-h: 45; --warning-s: 100%; --warning-l: 50%;
+            --warning: hsl(var(--warning-h), var(--warning-s), var(--warning-l));
+            
+            --secondary: #888bab;
             --text: #ffffff;
+            --border: rgba(255, 255, 255, 0.08);
+            --radius: 4px;
         }
+        
+        * { box-sizing: border-box; }
         
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg);
             color: var(--text);
             margin: 0;
-            padding: 2rem;
+            padding: 1.5rem;
             min-height: 100vh;
-        }    color: var(--primary); 
-            font-family: 'Roboto Mono', monospace; 
-            font-size: 2.2rem;
-            text-shadow: 0 0 10px rgba(0, 255, 0, 0.3); /* Adjusted for green primary */
-            margin-bottom: 2rem;
+            overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
         }
         
-        /* Tabs */
-        .tabs { display: flex; border-bottom: 1px solid rgba(0, 255, 0, 0.3); margin-bottom: 2rem; }
-        .tab-btn { background: transparent; color: var(--secondary); border-bottom: 2px solid transparent; padding: 0.8rem 1.5rem; transition: all 0.2s; font-size: 0.9rem; margin-right: 1rem; cursor: pointer; border-radius: 4px; border: 1px solid rgba(0, 255, 0, 0.2); } /* Adjusted for green primary */
-        .tab-btn.active { color: var(--primary); border: 1px solid var(--primary); background: rgba(0, 255, 0, 0.1); box-shadow: 0 0 10px rgba(0, 255, 0, 0.2); } /* Adjusted for green primary */
+        h1, h2, h3, h4 { font-family: 'Inter', sans-serif; font-weight: 700; margin: 0; letter-spacing: -0.02em; }
+        
+        /* Layout */
+        .header-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+            padding: 1rem 0;
+            border-bottom: 1px solid var(--border);
+        }
+        
+        .brand {
+            font-family: 'Roboto Mono', monospace;
+            font-weight: 700;
+            font-size: 1.5rem;
+            letter-spacing: 2px;
+            color: var(--primary);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .brand-icon {
+            width: 32px; height: 32px;
+            background: var(--primary);
+            border-radius: 6px;
+            display: flex; align-items: center; justify-content: center;
+            color: var(--bg); font-size: 1.2rem;
+        }
+
+        /* Tabs Navigation */
+        .tabs { 
+            display: flex; 
+            gap: 4px; 
+            background: rgba(0,0,0,0.2); 
+            padding: 4px; 
+            border-radius: 8px;
+            margin-bottom: 2rem;
+            width: fit-content;
+        }
+        .tab-btn { 
+            background: transparent; 
+            color: var(--secondary); 
+            border: none;
+            padding: 0.6rem 1.2rem; 
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); 
+            font-size: 0.85rem; 
+            font-weight: 600;
+            cursor: pointer; 
+            border-radius: 6px; 
+        }
+        .tab-btn:hover { color: #fff; background: rgba(255,255,255,0.05); }
+        .tab-btn.active { 
+            color: #fff; 
+            background: var(--surface);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
         
         .tab-content { 
-            visibility: hidden; 
-            opacity: 0; 
-            position: absolute; 
-            top: 0; left: 0; right: 0;
-            pointer-events: none;
-            transition: opacity 0.2s ease-in-out;
-            z-index: -1;
+            display: none;
+            animation: fadeIn 0.3s ease-out;
         }
-        .tab-content.active { 
-            visibility: visible; 
-            opacity: 1; 
-            position: relative;
-            pointer-events: auto;
-            z-index: 1;
+        .tab-content.active { display: block; }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(4px); }
+            to { opacity: 1; transform: translateY(0); }
         }
         
-        .config-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 1rem; }
-        
-        /* GridStack Adjustments */
-        .grid-stack { width: 100%; margin-top: 1.5rem; }
+        /* Grid & Panels */
+        .grid-stack { margin-top: 0; }
         .grid-stack-item-content {
             background: var(--surface);
-            padding: 1.5rem; 
-            border-radius: 4px; /* Sharper Corners */
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            border: 1px solid #2B2B2B; /* BitMEX crisp borders */
+            padding: 1.25rem; 
+            border-radius: var(--radius);
+            box-shadow: 0 8px 24px rgba(0,0,0,0.3);
+            border: 1px solid var(--border);
             display: flex;
             flex-direction: column;
-            overflow: auto;
-        }
-        .grid-stack-item-content:hover { 
-            border-color: #444; 
+            overflow: hidden;
         }
         
-        .gs-drag-handle { cursor: grab; background: rgba(255,255,255,0.03); height: 1.5rem; margin: -1.5rem -1.5rem 1rem -1.5rem; display:flex; justify-content:center; align-items:center; border-bottom: 1px solid #2B2B2B;}
-        .gs-drag-handle::after { content: '...'; letter-spacing: 2px; color: var(--secondary); font-weight:bold; transform:translateY(-4px);}
+        .gs-drag-handle { 
+            cursor: grab; 
+            height: 24px; 
+            margin: -1.25rem -1.25rem 0.75rem -1.25rem; 
+            display:flex; justify-content:center; align-items:center; 
+            opacity: 0.3;
+            transition: opacity 0.2s;
+        }
+        .gs-drag-handle:hover { opacity: 1; }
+        .gs-drag-handle::after { 
+            content: ''; 
+            width: 32px; height: 4px; 
+            background: rgba(255,255,255,0.2); 
+            border-radius: 2px;
+        }
 
-        /* Used strictly inside GridStack panels */
-        .panel { display: flex; flex-direction: column; flex-grow: 1; height: 100%; overflow: auto;}
+        .panel { 
+            display: flex; flex-direction: column; flex-grow: 1; height: 100%; 
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.1) transparent;
+        }
+        .panel h3 {
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            color: var(--secondary);
+            margin-bottom: 1.25rem;
+            display: flex;
+            justify-content: space-between; align-items: center;
+        }
 
-        /* Used for non-gridstack statically placed panels */
         .static-panel { 
             background: var(--surface);
             padding: 1.5rem; 
-            border-radius: 4px; 
-            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            border: 1px solid #2B2B2B;
-            transition: transform 0.2s, box-shadow 0.2s;
+            border-radius: var(--radius); 
+            border: 1px solid var(--border);
+            margin-bottom: 1.5rem;
+        }
+        
+        /* Inputs & Buttons */
+        .form-group { margin-bottom: 1.25rem; }
+        .form-group label { 
+            display: block; 
+            font-size: 0.75rem; 
+            font-weight: 700; 
+            text-transform: uppercase; 
+            color: var(--secondary); 
+            margin-bottom: 0.5rem;
+            letter-spacing: 0.05em;
+        }
+        
+        input, select {
+            width: 100%;
+            background: rgba(0,0,0,0.2);
+            border: 1px solid var(--border);
+            color: #fff;
+            padding: 0.75rem 1rem;
+            border-radius: var(--radius);
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+            transition: border-color 0.2s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary);
         }
         
         button { 
             padding: 0.8rem 1.6rem; 
-            border: none; border-radius: 6px; 
-            font-family: 'Inter', sans-serif; font-weight: 600; text-transform: uppercase; letter-spacing: 1px;
+            border: none; border-radius: var(--radius); 
+            font-weight: 700; font-size: 0.8rem;
+            text-transform: uppercase; letter-spacing: 0.05em;
             cursor: pointer; transition: all 0.2s;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
         }
-        .btn-start { background: var(--primary); color: var(--bg); }
-        .btn-start:hover { background: #fff; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0, 255, 0, 0.4); } /* Adjusted for green primary */
+        .btn-start { background: var(--primary); color: #000; }
+        .btn-start:hover { filter: brightness(1.1); transform: translateY(-1px); box-shadow: 0 4px 12px hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.3); }
         .btn-stop { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
-        .btn-stop:hover { background: rgba(255, 77, 77, 0.1); transform: translateY(-2px); } /* Adjusted for red danger */
+        .btn-stop:hover { background: hsla(var(--danger-h), var(--danger-s), var(--danger-l), 0.1); transform: translateY(-1px); }
         
-        .badge { padding: 0.2rem 0.6rem; border-radius: 12px; font-size: 0.75rem; font-weight: bold; }
-        .badge.RUNNING { background: rgba(0, 255, 0, 0.2); color: var(--success); border: 1px solid var(--success); text-shadow: 0 0 5px var(--success); } /* Adjusted for green success */
-        .badge.PAUSED { background: rgba(255, 77, 77, 0.2); color: var(--danger); border: 1px solid var(--danger); } /* Adjusted for red danger */
+        /* Status Badges */
+        .badge { 
+            padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 800; 
+            text-transform: uppercase; letter-spacing: 0.05em;
+        }
+        .badge.RUNNING { background: hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.15); color: var(--primary); border: 1px solid hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.3); }
+        .badge.PAUSED { background: hsla(var(--danger-h), var(--danger-s), var(--danger-l), 0.15); color: var(--danger); border: 1px solid hsla(var(--danger-h), var(--danger-s), var(--danger-l), 0.3); }
         
-        #logs { font-family: 'Roboto Mono', monospace; font-size: 0.8rem; height: 160px; overflow-y: auto; color: var(--secondary); }
+        /* Stats */
+        .stat-row { 
+            display: flex; justify-content: space-between; align-items: center; 
+            margin-bottom: 0.75rem; font-size: 0.9rem;
+        }
+        .stat-value { font-family: 'Roboto Mono', monospace; font-weight: 700; color: #fff; }
         
+        #logs { 
+            font-family: 'Roboto Mono', monospace; font-size: 0.75rem; height: 160px; overflow-y: auto; 
+            color: var(--secondary); background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 4px;
+        }
+
         /* USD helpers */
         .input-with-usd { display: flex; gap: 0.5rem; align-items: center; }
-        .input-with-usd input[type="number"] { flex: 1; }
-        .input-usd-helper { width: 95px !important; color: #f1c40f !important; border-color: rgba(241, 196, 15, 0.3) !important; padding: 0.4rem !important; font-size: 0.85rem !important; }
-        
+        .input-with-usd input { flex: 1; }
+        .input-usd-helper { width: 95px !important; color: var(--warning) !important; border-color: hsla(var(--warning-h), var(--warning-s), var(--warning-l), 0.3) !important; padding: 0.45rem !important; font-size: 0.8rem !important; font-weight: 700 !important; }
+
         /* Specific panels */
         .strat-panel { display: none; }
         #gork_config { display: block; }
-
-        /* Simulator Dashboard */
-        .sim-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem; }
-        .sim-stat { 
-            background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.05);
-            padding: 1.5rem; text-align: center; border-radius: 8px;
-        }
-        .sim-val { font-size: 1.8rem; font-weight: bold; color: var(--primary); margin: 0.5rem 0; font-family: 'Roboto Mono', monospace; }
-        .sim-title { font-size: 0.8rem; text-transform: uppercase; color: var(--secondary); letter-spacing: 1px;}
-        .sim-danger { color: #ff4d4d; } /* Adjusted for red danger */
-        .sim-success { color: #00ff00; } /* Adjusted for green success */
         
-        /* AI Chat Styles */
-        .ai-msg { margin-bottom: 0.8rem; padding: 0.5rem; border-radius: 4px; }
-        .ai-msg-user { background: rgba(0, 255, 0, 0.1); border-left: 2px solid var(--primary); } /* Adjusted for green primary */
-        .ai-msg-bot { background: rgba(255, 255, 255, 0.05); border-left: 2px solid var(--secondary); }
-        .ai-cmd { color: var(--primary); font-family: monospace; font-weight: bold; }
+        /* Chart Container */
+        .chart-container { position: relative; min-height: 400px; height: 100%; width: 100%; border-radius: 4px; overflow: hidden; border: 1px solid var(--border); }
+        
+        /* Mobile Responsiveness */
+        @media (max-width: 900px) {
+            body { padding: 1rem; }
+            .header-bar { flex-direction: column; gap: 1rem; align-items: flex-start; }
+            .tabs { width: 100%; overflow-x: auto; padding-bottom: 8px; }
+            .tab-btn { flex: 0 0 auto; }
+        }
 
+        /* Dragon Tower Prediction Styles Update */
+        .tower-grid { gap: 8px; padding: 1rem; background: rgba(0,0,0,0.3); border-radius: 8px; border: 1px solid var(--border); }
+        .tower-tile {
+            width: 100%; height: 40px; border-radius: 4px; border: 1px solid rgba(255,255,255,0.05);
+            background: rgba(255,255,255,0.02); color: rgba(255,255,255,0.15);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
+        }
+        .tower-tile.safe { background: hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.1); border-color: var(--primary); color: var(--primary); }
+        .tower-tile.egg { background: hsla(var(--danger-h), var(--danger-s), var(--danger-l), 0.1); border-color: var(--danger); color: var(--danger); opacity: 0.4; }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.4); }
+            70% { box-shadow: 0 0 0 10px hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0); }
+            100% { box-shadow: 0 0 0 0 hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0); }
+        }
+        .running-pulse { animation: pulse 2s infinite; }
+
+        /* AI Chat Styles */
+        .ai-msg { margin-bottom: 0.8rem; padding: 0.8rem; border-radius: 6px; border: 1px solid var(--border); font-size: 0.85rem; }
+        .ai-msg-user { background: hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.05); border-left: 2px solid var(--primary); }
+        .ai-msg-bot { background: rgba(255, 255, 255, 0.03); border-left: 2px solid var(--secondary); }
+        .ai-cmd { color: var(--primary); font-family: 'Roboto Mono', monospace; font-weight: 700; }
+        
         /* Tooltips */
         .tooltip {
             display: inline-block; cursor: pointer;
-            background: rgba(0, 255, 0, 0.2); color: var(--primary); /* Adjusted for green primary */
-            width: 16px; height: 16px; border-radius: 50%;
-            text-align: center; line-height: 16px; font-size: 0.7rem; font-weight: bold;
+            background: hsla(var(--primary-h), var(--primary-s), var(--primary-l), 0.1); color: var(--primary);
+            width: 14px; height: 14px; border-radius: 50%;
+            text-align: center; line-height: 14px; font-size: 0.65rem; font-weight: 800;
             margin-left: 6px; position: relative;
         }
         .tooltip .tooltiptext {
-            visibility: hidden; width: 220px; background-color: var(--surface);
-            color: #fff; text-align: left; border-radius: 6px; padding: 0.8rem;
+            visibility: hidden; width: 200px; background-color: var(--surface);
+            color: #fff; border-radius: 6px; padding: 0.75rem;
             position: absolute; z-index: 10; bottom: 125%; left: 50%;
-            margin-left: -110px; opacity: 0; transition: opacity 0.3s;
-            border: 1px solid var(--primary); font-size: 0.75rem; text-transform: none; font-weight: normal; letter-spacing: normal;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
-        }
-        .tooltip .tooltiptext::after {
-            content: ""; position: absolute; top: 100%; left: 50%;
-            margin-left: -5px; border-width: 5px; border-style: solid;
-            border-color: var(--primary) transparent transparent transparent;
+            margin-left: -100px; opacity: 0; transition: opacity 0.2s;
+            border: 1px solid var(--border); font-size: 0.75rem; text-transform: none; font-weight: normal; letter-spacing: normal;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.4);
         }
         .tooltip:hover .tooltiptext { visibility: visible; opacity: 1; }
 
-        @keyframes pulse {
-            0% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0.4); } /* Adjusted for green primary */
-            70% { box-shadow: 0 0 0 10px rgba(0, 255, 0, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(0, 255, 0, 0); }
-        }
-        .running-pulse { animation: pulse 2s infinite; }
-        
-        .chart-container { position: relative; height: 60vh; width: 100%; }
-        
-        /* Settings & VIP Panels */
-        .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; }
-        
-        /* VIP Badge & Progress */
-        .vip-card {
-            border: 2px solid rgba(0, 255, 0, 0.5); /* Adjusted for green primary */
-            border-radius: 12px; padding: 1.5rem;
-            position: relative; overflow: hidden;
-            background: linear-gradient(135deg, rgba(30,30,30,1) 0%, rgba(0,255,0,0.05) 100%); /* Adjusted for green primary */
-        }
-        .vip-badge {
-            position: absolute; right: 1.5rem; top: 1.5rem;
-            font-size: 3rem; color: var(--primary);
-            text-shadow: 0 0 20px rgba(0, 255, 0, 0.6); /* Adjusted for green primary */
-            opacity: 0.9;
-        }
-        .progress-bg {
-            background: rgba(255,255,255,0.1); height: 8px; border-radius: 4px; overflow: hidden; margin: 1rem 0;
-        }
-        .progress-fill {
-            background: var(--primary); height: 100%; width: 0%; transition: width 1s ease-out;
-        }
-        
-        /* Claim Rows (Rakeback, Reloads etc) */
-        .claim-row {
-            background: rgba(0,0,0,0.2); border-radius: 8px;
-            padding: 1rem; margin-top: 1rem;
-            display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid rgba(255,255,255,0.05);
-        }
-        .claim-btn { background: #3498db; color: white; padding: 0.5rem 1rem; font-size: 0.8rem; border-radius: 6px; border:none; cursor:pointer;}
-        .claim-btn:hover { filter: brightness(1.2); }
-        .claim-btn.disabled { background: rgba(255,255,255,0.1); color: rgba(255,255,255,0.4); cursor: not-allowed; }
-        
-        /* Wallet Toggles */
-        .wallet-item {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 0.8rem; border-bottom: 1px solid rgba(255,255,255,0.05);
-        }
-        .wallet-item:last-child { border-bottom: none; }
-        .currency-label { font-weight: bold; color: #fff; width: 60px;}
-        .usd-value { color: var(--secondary); font-size: 0.9rem; margin-left: auto; margin-right: 15px;}
-        
-        /* Inputs with Button append */
-        .input-group { display: flex; gap: 0.5rem; }
-        .input-group input { flex-grow: 1; }
-        .input-group button { padding: 0.6rem 1rem; }
-        
-        /* SortableJS drag states */
-        /* .sortable-ghost { opacity: 0.4; background: rgba(102, 252, 241, 0.05); } */ /* Removed as SortableJS is replaced */
-        /* .sortable-drag { box-shadow: 0 10px 30px rgba(0,0,0,0.5); cursor: grabbing !important;} */ /* Removed as SortableJS is replaced */
-
-        /* Mobile Responsiveness (iPhone 16 Plus max approx 430px) */
-        @media (max-width: 768px) {
-            body { padding: 1rem; }
-            h1 { font-size: 1.6rem; margin-bottom: 1rem; }
-            .grid-stack, .settings-grid, .sim-grid { grid-template-columns: 1fr; gap: 1rem; } /* Changed .grid to .grid-stack */
-            .config-grid { grid-template-columns: 1fr; }
-            .tabs { overflow-x: auto; white-space: nowrap; padding-bottom: 0.5rem; border-bottom: none; }
-            .tab-btn { padding: 0.6rem 1rem; font-size: 0.8rem; border: 1px solid rgba(0, 255, 0, 0.2); border-radius: 4px; margin-right: 0.5rem; margin-bottom: 0.5rem;} /* Adjusted for green primary */
-            .tab-btn.active { background: rgba(0, 255, 0, 0.1); } /* Adjusted for green primary */
-            .panel { padding: 1rem; resize: none !important; }
-            .stat-row { font-size: 0.9rem; flex-wrap: wrap; }
-            .chart-container { height: 40vh; }
-            .input-group { flex-direction: column; }
-            .vip-badge { font-size: 2rem; }
-            .vip-card { padding: 1rem; }
-        }
-
-        /* Dragon Tower Styles */
-        .tower-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 10px;
-            margin-top: 1rem;
-            padding: 1rem;
-            background: rgba(0,0,0,0.2);
-            border-radius: 12px;
-        }
-        .tower-row {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-        }
-        .tower-tile {
-            width: 80px;
-            height: 45px;
-            border-radius: 6px;
-            border: 2px solid rgba(255,255,255,0.05);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            font-size: 0.75rem;
-            transition: all 0.3s;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-        }
-        .tower-tile.safe {
-            background: rgba(0, 255, 0, 0.15); /* Adjusted for green success */
-            border-color: var(--success);
-            color: var(--success);
-            box-shadow: inset 0 0 10px rgba(0, 255, 0, 0.1); /* Adjusted for green success */
-        }
-        .tower-tile.egg {
-            background: rgba(255, 77, 77, 0.15); /* Adjusted for red danger */
-            border-color: var(--danger);
-            color: var(--danger);
-            opacity: 0.6;
-        }
     </style>
 </head>
 <body>
@@ -1265,17 +1279,32 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         if(localStorage.getItem('gork_jwt')) document.getElementById('login-overlay').style.display = 'none';
         else setTimeout(() => { document.getElementById('login-overlay').style.display = 'flex'; }, 100);
     </script>
-    <h1>✧ TERMINAL_GORK</h1>
+    <div class="header-bar">
+        <div class="brand">
+            <div class="brand-icon">✧</div>
+            THE GORK
+        </div>
+        <div style="display:flex; gap:1.5rem; align-items:center;">
+            <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                <span style="font-size:0.6rem; text-transform:uppercase; color:var(--secondary); letter-spacing:1px;">Global Status</span>
+                <span id="global-status-badge" class="badge PAUSED">SYSTEM READY</span>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                <span style="font-size:0.6rem; text-transform:uppercase; color:var(--secondary); letter-spacing:1px;">Active Coin</span>
+                <span id="active-coin-display" style="font-family:'Roboto Mono',monospace; font-weight:700; color:var(--primary); font-size:0.9rem;">---</span>
+            </div>
+        </div>
+    </div>
 
     <div class="tabs">
         <button class="tab-btn active" onclick="openTab(this, 'terminal')">TERMINAL</button>
-        <button class="tab-btn" onclick="openTab(this, 'charting')">REALTIME CHARTING</button>
-        <button class="tab-btn" onclick="openTab(this, 'simulate')">BENCHMARK / SIMULATOR</button>
-        <button class="tab-btn" onclick="openTab(this, 'editor')">STRATEGY EDITOR</button>
-        <button class="tab-btn" onclick="openTab(this, 'dragon')">DRAGON PREDICTOR</button>
-        <button class="tab-btn" onclick="openTab(this, 'dice-predict')">🎲 DICE PREDICTOR</button>
-        <button class="tab-btn" onclick="openTab(this, 'games')">🕹️ GAMES</button>
-        <button class="tab-btn" onclick="openTab(this, 'settings')">⚙ VIP & SETTINGS</button>
+        <button class="tab-btn" onclick="openTab(this, 'charting')">CHARTS</button>
+        <button class="tab-btn" onclick="openTab(this, 'simulate')">SIMULATOR</button>
+        <button class="tab-btn" onclick="openTab(this, 'editor')">STRATEGY</button>
+        <button class="tab-btn" onclick="openTab(this, 'dragon')">DRAGON</button>
+        <button class="tab-btn" onclick="openTab(this, 'dice-predict')">DICE PRED</button>
+        <button class="tab-btn" onclick="openTab(this, 'games')">GAMES</button>
+        <button class="tab-btn" onclick="openTab(this, 'settings')">SETTINGS</button>
     </div>
 
     <!-- TERMINAL TAB -->
@@ -2058,7 +2087,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
     <!-- GAMES TAB -->
     <div id="games" class="tab-content">
         <div class="grid-stack" id="gs-games">
-            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="4" gs-h="auto">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="4" gs-h="7">
                 <div class="grid-stack-item-content">
                     <div class="gs-drag-handle"></div>
                     <div class="panel">
@@ -2078,14 +2107,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                                 <option value="under">Roll Under</option>
                             </select>
                         </div>
-                        <button class="btn-start" style="width:100%; margin-top:1rem;" onclick="playManualGame('dice')">ROLL DICE</button>
-                        <div id="dice_manual_result" style="margin-top:1rem; font-weight:bold; text-align:center;"></div>
+                        <button class="btn-start" style="width:100%; margin-top:auto;" onclick="playManualGame('dice')">ROLL DICE</button>
+                        <div id="dice_manual_result" style="margin-top:1rem; font-size:0.9rem; font-weight:700; text-align:center; min-height:1.2rem;"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Limbo Card -->
-            <div class="grid-stack-item" gs-x="4" gs-y="0" gs-w="4" gs-h="auto">
+            <div class="grid-stack-item" gs-x="4" gs-y="0" gs-w="4" gs-h="7">
                 <div class="grid-stack-item-content">
                     <div class="gs-drag-handle"></div>
                     <div class="panel">
@@ -2098,14 +2127,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                             <label>Target Multiplier</label>
                             <input type="number" id="limbo_manual_target" step="0.01" value="2.00">
                         </div>
-                        <button class="btn-start" style="width:100%; margin-top:1rem;" onclick="playManualGame('limbo')">PLACE BET</button>
-                        <div id="limbo_manual_result" style="margin-top:1rem; font-weight:bold; text-align:center;"></div>
+                        <button class="btn-start" style="width:100%; margin-top:auto;" onclick="playManualGame('limbo')">PLACE BET</button>
+                        <div id="limbo_manual_result" style="margin-top:1rem; font-size:0.9rem; font-weight:700; text-align:center; min-height:1.2rem;"></div>
                     </div>
                 </div>
             </div>
 
             <!-- Plinko Card -->
-            <div class="grid-stack-item" gs-x="8" gs-y="0" gs-w="4" gs-h="auto">
+            <div class="grid-stack-item" gs-x="8" gs-y="0" gs-w="4" gs-h="7">
                 <div class="grid-stack-item-content">
                     <div class="gs-drag-handle"></div>
                     <div class="panel">
@@ -2126,14 +2155,14 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                             <label>Rows</label>
                             <input type="number" id="plinko_manual_rows" min="8" max="16" value="12">
                         </div>
-                        <button class="btn-start" style="width:100%; margin-top:1rem;" onclick="playManualGame('plinko')">DROP BALL</button>
-                        <div id="plinko_manual_result" style="margin-top:1rem; font-weight:bold; text-align:center;"></div>
+                        <button class="btn-start" style="width:100%; margin-top:auto;" onclick="playManualGame('plinko')">DROP BALL</button>
+                        <div id="plinko_manual_result" style="margin-top:1rem; font-size:0.9rem; font-weight:700; text-align:center; min-height:1.2rem;"></div>
                     </div>
                 </div>
             </div>
             
             <!-- Keno Card -->
-            <div class="grid-stack-item" gs-x="0" gs-y="4" gs-w="4" gs-h="auto">
+            <div class="grid-stack-item" gs-x="0" gs-y="7" gs-w="4" gs-h="7">
                 <div class="grid-stack-item-content">
                     <div class="gs-drag-handle"></div>
                     <div class="panel">
@@ -2143,22 +2172,21 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                             <input type="number" id="keno_manual_bet" step="0.00000001" value="0.00000001">
                         </div>
                         <div class="form-group">
-                            <label>Numbers (1-40, comma separated)</label>
+                            <label>Numbers (1-40)</label>
                             <input type="text" id="keno_manual_numbers" placeholder="e.g. 1, 5, 12, 24, 33">
                         </div>
-                        <button class="btn-start" style="width:100%; margin-top:1rem;" onclick="playManualGame('keno')">PLAY KENO</button>
-                        <div id="keno_manual_result" style="margin-top:1rem; font-weight:bold; text-align:center;"></div>
+                        <button class="btn-start" style="width:100%; margin-top:auto;" onclick="playManualGame('keno')">PLAY KENO</button>
+                        <div id="keno_manual_result" style="margin-top:1rem; font-size:0.9rem; font-weight:700; text-align:center; min-height:1.2rem;"></div>
                     </div>
                 </div>
             </div>
             
-            <!-- Mines Card (Still Pending due to complex UI needed) -->
-            <div class="grid-stack-item" gs-x="4" gs-y="4" gs-w="4" gs-h="auto">
+            <div class="grid-stack-item" gs-x="4" gs-y="7" gs-w="4" gs-h="7">
                 <div class="grid-stack-item-content">
                     <div class="gs-drag-handle"></div>
-                    <div class="panel" style="opacity:0.6; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-                        <h3 style="border:none; margin:0; color:var(--secondary);">MINES</h3>
-                        <div class="badge PAUSED" style="margin-top:1rem;">Multi-step UI Pending</div>
+                    <div class="panel" style="justify-content:center; align-items:center; background:rgba(255,255,255,0.02); border:1px dashed var(--border);">
+                        <h3 style="border:none; margin:0; color:var(--secondary); opacity:0.5;">MINES</h3>
+                        <div class="badge PAUSED" style="margin-top:1.5rem; letter-spacing:1px;">Multi-step UI Pending</div>
                     </div>
                 </div>
             </div>
