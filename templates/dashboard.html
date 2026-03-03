@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Gork — v2.0</title>
+
+    <!-- External Libraries -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.23.4/ace.js"></script>
+    <link href="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack.min.css" rel="stylesheet" />
+    <script src="https://cdn.jsdelivr.net/npm/gridstack@8.2.1/dist/gridstack-all.js"></script>
+
+    <!-- Custom Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+
+<body>
+    <!-- LOGIN OVERLAY -->
+    <div id="login-overlay"
+        style="position:fixed; top:0; left:0; width:100%; height:100%; z-index:9999; display:none; flex-direction:column; align-items:center; justify-content:center;">
+        <div class="brand"
+            style="margin-bottom:2.5rem; font-size:2.5rem; filter: drop-shadow(0 0 15px var(--primary-glow));">
+            <div class="brand-icon" style="width:60px; height:60px;">✧</div>
+            THE GORK
+        </div>
+        <div class="grid-stack-item-content"
+            style="width:100%; max-width:420px; padding:3rem; backdrop-filter: blur(40px);">
+            <h2
+                style="text-align:center; margin-bottom:2rem; color:var(--primary); letter-spacing:2px; font-size:1.1rem;">
+                SECURE AUTHENTICATION</h2>
+            <div class="form-group">
+                <label>SYSTEM ACCESS KEY</label>
+                <input type="password" id="login-pw" placeholder="••••••••"
+                    style="text-align:center; font-size:1.2rem; letter-spacing:4px;"
+                    onkeypress="if(event.key === 'Enter') submitLogin()">
+            </div>
+            <button class="btn-start" onclick="submitLogin()"
+                style="width:100%; padding:1rem; font-size:1rem;">ESTABLISH CONNECTION</button>
+            <div id="login-err"
+                style="color:var(--danger); margin-top:1.5rem; display:none; text-align:center; font-weight:600; font-size:0.8rem;">
+                ACCESS DENIED: INVALID KEY</div>
+        </div>
+    </div>
+
+    <!-- MAIN DASHBOARD -->
+    <div class="header-bar">
+        <div class="brand">
+            <div class="brand-icon">✧</div>
+            THE GORK <span
+                style="font-size:0.6rem; color:var(--secondary); background:rgba(255,255,255,0.05); padding:2px 6px; border-radius:4px; vertical-align:middle; margin-left:8px;">v2.0.4</span>
+        </div>
+        <div style="display:flex; gap:2.5rem; align-items:center;">
+            <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                <span
+                    style="font-size:0.65rem; text-transform:uppercase; color:var(--secondary); font-weight:700; letter-spacing:1px; margin-bottom:4px;">Engine
+                    Cluster</span>
+                <span id="global-status-badge" class="badge PAUSED">SYSTEM READY</span>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                <span
+                    style="font-size:0.65rem; text-transform:uppercase; color:var(--secondary); font-weight:700; letter-spacing:1px; margin-bottom:4px;">Primary
+                    Ledger</span>
+                <span id="active-coin-display"
+                    style="font-family:var(--font-mono); font-weight:800; color:var(--primary); font-size:1rem;">{{
+                    state.balance.currency | upper }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="tabs">
+        <button class="tab-btn active" onclick="openTab(this, 'terminal')">TERMINAL</button>
+        <button class="tab-btn" onclick="openTab(this, 'charting')">ANALYTICS</button>
+        <button class="tab-btn" onclick="openTab(this, 'simulate')">SIMULATOR</button>
+        <button class="tab-btn" onclick="openTab(this, 'editor')">STRATEGY</button>
+        <button class="tab-btn" onclick="openTab(this, 'dragon')">TOWER PRED</button>
+        <button class="tab-btn" onclick="openTab(this, 'dice-predict')">DICE PRED</button>
+        <button class="tab-btn" onclick="openTab(this, 'games')">GAMES</button>
+        <button class="tab-btn" onclick="openTab(this, 'settings')">CONFIG</button>
+    </div>
+
+    <!-- TERMINAL TAB -->
+    <div id="terminal" class="tab-content active">
+        <div class="grid-stack" id="gs-terminal">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="4" gs-h="8">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Cluster Status <span id="status-badge" class="badge PAUSED">PAUSED</span></h3>
+                        <div class="stat-row"><span>Wallet Balance</span><span class="stat-value"
+                                id="balance">0.00000000</span></div>
+                        <div class="stat-row"><span>Currency</span><span class="stat-value" id="currency">---</span>
+                        </div>
+                        <div class="stat-row"><span>Last Bet</span><span class="stat-value" id="bet">0.00000000</span>
+                        </div>
+                        <div class="stat-row"><span>Sequence count</span><span class="stat-value" id="bets">0</span>
+                        </div>
+                        <div class="stat-row"><span>Wager Volume</span><span class="stat-value" id="wagered">0.00</span>
+                        </div>
+                        <div style="margin-top:auto; padding-top:1rem;">
+                            <button id="startBtn" class="btn-start"
+                                style="width:100%; border-radius:10px; padding:1rem;" onclick="startBot()">IGNITE CORE
+                                ENGINE</button>
+                            <button class="btn-stop" style="width:100%; margin-top:0.75rem; border-radius:10px;"
+                                onclick="stopBot()">EMERGENCY HALT</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-stack-item" gs-x="4" gs-y="0" gs-w="4" gs-h="8">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Strategy Module</h3>
+                        <div class="form-group">
+                            <label>Selection</label>
+                            <select id="strategy" onchange="toggleStrat()">
+                                <option value="the_gork">THE GORK (FLAGSHIP)</option>
+                                <option value="die_last">DIE LAST (AGGRESSIVE)</option>
+                                <option value="vanish_in_volume">VANISH IN VOLUME</option>
+                                <option value="eternal_volume">ETERNAL VOLUME</option>
+                                <option value="ema_cross">EMA CROSS TREND</option>
+                                <option value="reverted_martingale">REVERTED MARTINGALE</option>
+                                <option value="wager_grind_99">WAGER GRIND 99%</option>
+                                <option value="fibonacci">FIBONACCI RECOVERY</option>
+                                <option value="paroli">PAROLI STREAK</option>
+                                <option value="oscars_grind">OSCAR'S GRIND</option>
+                                <option value="basic">BASIC MUTATOR</option>
+                                <option value="custom">CUSTOM SCRIPT</option>
+                            </select>
+                        </div>
+                        <div id="strat-desc"
+                            style="font-size:0.8rem; color:var(--secondary); line-height:1.4; margin-bottom:1.5rem; min-height:4em;">
+                        </div>
+
+                        <div class="panel-scroll" style="overflow-y:auto; flex-grow:1; padding-right:5px;">
+                            <div id="the_gork_config" class="strat-panel">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="g_base"
+                                        value="0.0012" step="0.0001"></div>
+                                <div class="form-group"><label>Take Profit %</label><input type="number" id="g_tp"
+                                        value="3.0"></div>
+                                <div class="form-group"><label>Stop Loss %</label><input type="number" id="g_sl"
+                                        value="-1.4"></div>
+                                <div class="form-group"><label>Daily Loss Cap %</label><input type="number" id="g_daily"
+                                        value="-10.0"></div>
+                            </div>
+                            <div id="die_last_config" class="strat-panel"
+                                style="display:none; height:100%; display:flex; flex-direction:column;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="dl_base"
+                                        value="0.005" step="0.0001"></div>
+                                <div class="form-group"><label>Take Profit %</label><input type="number" id="dl_tp"
+                                        value="5.0"></div>
+                                <div class="form-group"><label>Stop Loss %</label><input type="number" id="dl_sl"
+                                        value="-2.5"></div>
+                            </div>
+                            <!-- All other configs follow the same pattern... -->
+                            <div id="vanish_config" class="strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="v_base"
+                                        value="0.0015" step="0.0001"></div>
+                                <div class="form-group"><label>Take Profit %</label><input type="number" id="v_tp"
+                                        value="2.0"></div>
+                                <div class="form-group"><label>Stop Loss %</label><input type="number" id="v_sl"
+                                        value="-1.0"></div>
+                            </div>
+                            <div id="eternal_config" class="strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="e_base"
+                                        value="0.0012" step="0.0001"></div>
+                            </div>
+                            <div id="ema_config" class="strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="ema_base"
+                                        value="0.002" step="0.0001"></div>
+                            </div>
+                            <div id="reverted_martingale_config" class="strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="rm_base"
+                                        value="0.0012" step="0.0001"></div>
+                                <div class="form-group"><label>On Loss Mult</label><input type="number" id="rm_loss"
+                                        value="1.5"></div>
+                            </div>
+                            <div id="wg99_config" class="strat-panel" style="display:none;">
+                                <div class="form-group">
+                                    <label>Base Bet %</label>
+                                    <input type="number" id="wg99_base" value="0.05" step="0.01">
+                                </div>
+                            </div>
+                            <div id="fibonacci_config" class="strat-panel" style="display:none;">
+                                <div class="form-group">
+                                    <label>Base Bet %</label>
+                                    <input type="number" id="fib_base" value="0.001" step="0.0001">
+                                </div>
+                            </div>
+                            <div id="paroli_config" class="strat-panel" style="display:none;">
+                                <div class="form-group">
+                                    <label>Base Bet %</label>
+                                    <input type="number" id="par_base" value="0.0005" step="0.0001">
+                                </div>
+                            </div>
+                            <div id="oscars_grind_config" class="strat-panel" style="display:none;">
+                                <div class="form-group">
+                                    <label>Base Bet %</label>
+                                    <input type="number" id="osc_base" value="0.001" step="0.0001">
+                                </div>
+                            </div>
+                            <div id="basic_config" class="strat-panel" style="display:none;">
+                                <div class="form-group"><label>Bet Amount</label><input type="number"
+                                        id="basic_bet_amount" value="0.000001" step="any"></div>
+                                <div class="form-group"><label>Target</label><input type="number" id="basic_target"
+                                        value="50.50"></div>
+                                <div class="form-group"><label>Condition</label><select id="basic_condition"
+                                        onchange="syncWinChance()">
+                                        <option value="over">Over</option>
+                                        <option value="under">Under</option>
+                                    </select></div>
+                            </div>
+                            <div id="custom_config" class="strat-panel" style="display:none;">
+                                <div id="dynamic_custom_params"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-stack-item" gs-x="8" gs-y="0" gs-w="4" gs-h="8">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Audit Logs</h3>
+                        <div id="logs"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ANALYTICS TAB -->
+    <div id="charting" class="tab-content">
+        <div class="grid-stack" id="gs-charting">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="12" gs-h="10">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Equity Curve Analytics</h3>
+                        <div id="tvchart" class="chart-container" style="flex-grow:1;"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- SIMULATOR TAB -->
+    <div id="simulate" class="tab-content">
+        <div class="grid-stack" id="gs-simulate">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="4" gs-h="10">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Simulation Config</h3>
+                        <div class="form-group"><label>Initial Equity ($)</label><input type="number" id="sim_balance"
+                                value="1000"></div>
+                        <div class="form-group"><label>Target Iterations</label><input type="number" id="sim_bets"
+                                value="10000"></div>
+                        <div class="form-group">
+                            <label>Algorithm</label>
+                            <select id="sim_strategy" onchange="simToggleStrat()">
+                                <option value="the_gork">THE GORK</option>
+                                <option value="die_last">DIE LAST</option>
+                                <option value="vanish_in_volume">VANISH</option>
+                                <option value="eternal_volume">ETERNAL</option>
+                                <option value="ema_cross">EMA CROSS</option>
+                                <option value="reverted_martingale">REVERTED MARTINGALE</option>
+                                <option value="wager_grind_99">WAGER GRIND</option>
+                                <option value="fibonacci">FIBONACCI</option>
+                                <option value="paroli">PAROLI</option>
+                                <option value="oscars_grind">OSCAR'S GRIND</option>
+                                <option value="basic">BASIC</option>
+                                <option value="custom">CUSTOM</option>
+                            </select>
+                        </div>
+                        <hr style="border:none; border-top:1px solid var(--border); margin:1rem 0;">
+
+                        <div class="panel-scroll" style="overflow-y:auto; flex-grow:1; margin-bottom:1rem;">
+                            <!-- Simulator specific strat panels -->
+                            <div id="sim_gork_config" class="sim-strat-panel">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_g_base"
+                                        value="0.0012" step="0.0001"></div>
+                                <div class="form-group"><label>TP %</label><input type="number" id="s_g_tp" value="3.0">
+                                </div>
+                                <div class="form-group"><label>SL %</label><input type="number" id="s_g_sl"
+                                        value="-1.4"></div>
+                            </div>
+                            <div id="sim_die_last_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_dl_base"
+                                        value="0.005" step="0.0001"></div>
+                                <div class="form-group"><label>TP %</label><input type="number" id="s_dl_tp" value="5.0"
+                                        step="0.1"></div>
+                                <div class="form-group"><label>SL %</label><input type="number" id="s_dl_sl"
+                                        value="-2.5" step="0.1"></div>
+                            </div>
+                            <div id="sim_vanish_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_v_base"
+                                        value="0.0015" step="0.0001"></div>
+                                <div class="form-group"><label>TP %</label><input type="number" id="s_v_tp" value="2.0">
+                                </div>
+                                <div class="form-group"><label>SL %</label><input type="number" id="s_v_sl"
+                                        value="-1.0"></div>
+                            </div>
+                            <div id="sim_eternal_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_e_base"
+                                        value="0.0012" step="0.0001"></div>
+                            </div>
+                            <div id="sim_ema_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_ema_base"
+                                        value="0.002" step="0.0001"></div>
+                            </div>
+                            <div id="sim_reverted_martingale_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_rm_base"
+                                        value="0.0012" step="0.0001"></div>
+                                <div class="form-group"><label>On Loss Mult</label><input type="number" id="s_rm_loss"
+                                        value="1.5"></div>
+                            </div>
+                            <div id="sim_wager_grind_99_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_wg99_base"
+                                        value="0.05" step="0.01"></div>
+                            </div>
+                            <div id="sim_fibonacci_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_fib_base"
+                                        value="0.001" step="0.0001"></div>
+                            </div>
+                            <div id="sim_paroli_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_par_base"
+                                        value="0.0005" step="0.0001"></div>
+                            </div>
+                            <div id="sim_oscars_grind_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_osc_base"
+                                        value="0.001" step="0.0001"></div>
+                            </div>
+                            <div id="sim_basic_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Target</label><input type="number" id="s_basic_target"
+                                        value="50.50"></div>
+                                <div class="form-group"><label>Condition</label><select id="s_basic_condition">
+                                        <option value="over">Over</option>
+                                        <option value="under">Under</option>
+                                    </select></div>
+                            </div>
+                            <div id="sim_custom_config" class="sim-strat-panel" style="display:none;">
+                                <div id="sim_dynamic_custom_params"></div>
+                            </div>
+                        </div>
+
+                        <div class="form-group"><label>Drawdown Cap %</label><input type="number" id="sim_atcap"
+                                value="-8.0"></div>
+                        <div class="form-group"><label>Min Bet Floor</label><input type="number" id="sim_floor"
+                                value="0.000001" step="any"></div>
+
+                        <button class="btn-start" style="width:100%; border-radius:10px; padding:1.2rem;"
+                            onclick="runSimulation()">RUN HIGH-SPEED SIMULATION</button>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-stack-item" gs-x="4" gs-y="0" gs-w="8" gs-h="10">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Monte Carlo Outcomes <span id="sim-status" class="badge">READY</span></h3>
+                        <div id="sim-chart-wrap"
+                            style="display:none; height:350px; background:#000; border-radius:8px; overflow:hidden; border:1px solid var(--border); margin-bottom:1.5rem;">
+                            <div id="sim-chart" style="height:100%;"></div>
+                        </div>
+                        <div id="sim-summary"
+                            style="display:none; padding:1.5rem; background:rgba(255,255,255,0.02); border-radius:12px; border:1px solid var(--border);">
+                            <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:2rem;">
+                                <div><label style="font-size:0.6rem; color:var(--secondary);">FINAL EQUITY</label>
+                                    <div id="res-bal" class="stat-value" style="font-size:1.4rem;">$0.00</div>
+                                </div>
+                                <div><label style="font-size:0.6rem; color:var(--secondary);">TOTAL PROFIT/LOSS</label>
+                                    <div id="res-pnl" class="stat-value" style="font-size:1.4rem;">$0.00</div>
+                                </div>
+                                <div><label style="font-size:0.6rem; color:var(--secondary);">WIN RATE</label>
+                                    <div id="res-wr" class="stat-value" style="font-size:1.4rem;">0%</div>
+                                </div>
+                                <div><label style="font-size:0.6rem; color:var(--secondary);">MAX DRAWDOWN</label>
+                                    <div id="res-dd" class="stat-value" style="font-size:1.1rem; color:var(--danger);">
+                                        0%</div>
+                                </div>
+                                <div><label style="font-size:0.6rem; color:var(--secondary);">PEAK EQUITY</label>
+                                    <div id="res-peak" class="stat-value"
+                                        style="font-size:1.1rem; color:var(--primary);">$0.00</div>
+                                </div>
+                                <div><label style="font-size:0.6rem; color:var(--secondary);">WL RATIO</label>
+                                    <div id="res-wl" class="stat-value" style="font-size:1.1rem;">0/0</div>
+                                </div>
+                                <div><label style="font-size:0.6rem; color:var(--secondary);">CIRCUIT BREAKERS</label>
+                                    <div id="res-cb" class="stat-value" style="font-size:1.1rem;">0</div>
+                                </div>
+                                <div><label style="font-size:0.6rem; color:var(--secondary);">VOLUME WAGERED</label>
+                                    <div id="res-wager" class="stat-value" style="font-size:1.1rem;">$0.00</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- STRATEGY EDITOR TAB -->
+    <div id="editor" class="tab-content">
+        <div class="grid-stack" id="gs-editor">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="8" gs-h="9">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Strategy Lab <span id="editor-status"
+                                style="font-size:0.75rem; font-weight:400; color:var(--primary); margin-left:1rem;"></span>
+                        </h3>
+                        <div id="ace-editor" style="height:100%; border-radius:8px; border:1px solid var(--border);">
+                        </div>
+                        <div style="display:flex; gap:1rem; margin-top:1.5rem;">
+                            <button class="btn-start" onclick="saveCustomCode()">SAVE CLOUD SCRIPT</button>
+                            <select id="template-select" style="max-width:220px;"></select>
+                            <button class="btn-stop" onclick="loadTemplate()"
+                                style="color:var(--text); border-color:var(--border);">LOAD BLUEPRINT</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-stack-item" gs-x="8" gs-y="0" gs-w="4" gs-h="9">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Script Presets</h3>
+                        <div class="form-group"><label>Snapshot Title</label><input type="text" id="preset_name"
+                                placeholder="E.g. Lunar Strategy 1.0"></div>
+                        <button class="btn-start" style="width:100%; margin-bottom:1.5rem;" onclick="savePreset()">SAVE
+                            PRESET STATE</button>
+                        <hr style="border:none; border-top:1px solid var(--border); margin-bottom:1.5rem;">
+                        <div id="preset-list"
+                            style="display:flex; flex-direction:column; gap:0.75rem; overflow-y:auto; flex-grow:1;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DRAGON TAB -->
+    <div id="dragon" class="tab-content">
+        <div class="grid-stack" id="gs-dragon">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="12" gs-h="12">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Dragon Tower Predictor Cluster</h3>
+                        <div
+                            style="display:grid; grid-template-columns: repeat(4, 1fr); gap:1.5rem; margin-bottom:2.5rem;">
+                            <div class="form-group"><label>Server Entropy</label><input type="text" id="dt_server_seed"
+                                    placeholder="Wait for sync..."></div>
+                            <div class="form-group"><label>Client Entropy</label><input type="text" id="dt_client_seed"
+                                    placeholder="Wait for sync..."></div>
+                            <div class="form-group"><label>Iteration (Nonce)</label><input type="number" id="dt_nonce"
+                                    value="0">
+                            </div>
+                            <div class="form-group">
+                                <label>Grid Density</label>
+                                <select id="dt_difficulty" onchange="predictDragon()">
+                                    <option value="easy">EASY (4x9)</option>
+                                    <option value="medium">MEDIUM (3x9)</option>
+                                    <option value="hard">HARD (2x9)</option>
+                                    <option value="expert">EXPERT (3x9, 2 Eggs)</option>
+                                    <option value="master">MASTER (4x9, 3 Eggs)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div style="display:flex; justify-content:center; perspective: 1000px; flex-grow:1;">
+                            <div id="tower-viz" class="tower-grid"
+                                style="width:100%; max-width:400px; transform: rotateX(10deg); filter: drop-shadow(0 20px 40px rgba(0,0,0,0.5));">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- DICE PREDICT TAB -->
+    <div id="dice-predict" class="tab-content">
+        <div class="grid-stack" id="gs-dice-predict">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="12" gs-h="9">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Stochastic Dice Engine</h3>
+                        <div
+                            style="display:grid; grid-template-columns: 1fr 1fr 150px; gap:1.5rem; margin-bottom:1.5rem;">
+                            <div class="form-group"><label>Server Entropy</label><input type="text"
+                                    id="dice_pred_server"></div>
+                            <div class="form-group"><label>Client Entropy</label><input type="text"
+                                    id="dice_pred_client"></div>
+                            <div class="form-group"><label>Iteration</label><input type="number" id="dice_pred_nonce"
+                                    value="0"></div>
+                        </div>
+                        <div
+                            style="display:flex; gap:1.5rem; align-items:center; background:rgba(255,255,255,0.02); padding:1.5rem; border-radius:14px; border:1px solid var(--border); margin-bottom:1.5rem;">
+                            <div class="form-group" style="margin:0; flex:1;"><label>Target Boundary</label><input
+                                    type="number" id="dice_pred_target" value="50.50"></div>
+                            <div class="form-group" style="margin:0; flex:1;"><label>Vector</label><select
+                                    id="dice_pred_condition">
+                                    <option value="over">Over</option>
+                                    <option value="under">Under</option>
+                                </select></div>
+                            <button class="btn-start" onclick="predictDice()" style="flex:1; padding:1.2rem;">CALCULATE
+                                PROBABILITY</button>
+                        </div>
+                        <div id="dice-prediction-display"
+                            style="text-align:center; flex-grow:1; display:flex; flex-direction:column; justify-content:center;">
+                            <div id="dice_pred_visual"
+                                style="font-size:7rem; font-weight:800; font-family:var(--font-mono); color:var(--primary); text-shadow: 0 0 30px var(--primary-glow);">
+                                00.00</div>
+                            <div id="dice_pred_status"
+                                style="font-size:1.2rem; letter-spacing:6px; font-weight:700; color:var(--secondary);">
+                                RE-ENGAGE SYSTEM</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAMES TAB -->
+    <div id="games" class="tab-content">
+        <div class="grid-stack" id="gs-games">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="4" gs-h="8">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h4
+                            style="color:var(--primary); text-transform:uppercase; font-size:0.8rem; letter-spacing:1px;">
+                            DICE MODULE</h4>
+                        <div class="form-group"><label>Wager Amount</label><input type="number" id="dice_manual_bet"
+                                value="0.000001" step="any"></div>
+                        <div style="display:flex; gap:1rem;">
+                            <div class="form-group" style="flex:1;"><label>Target</label><input type="number"
+                                    id="dice_manual_target" value="50.50"></div>
+                            <div class="form-group" style="flex:1;"><label>Vector</label><select
+                                    id="dice_manual_condition">
+                                    <option value="over">Over</option>
+                                    <option value="under">Under</option>
+                                </select></div>
+                        </div>
+                        <button class="btn-start" style="width:100%; border-radius:10px; margin-top:1rem;"
+                            onclick="playManualGame('dice')">EXECUTE WAGER</button>
+                        <div id="dice_manual_result" class="stat-value"
+                            style="margin-top:1.5rem; text-align:center; font-size:1.1rem; min-height:1.5em;"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- More game modules can be added as grid-stack-items here -->
+        </div>
+    </div>
+
+    <!-- CONFIG TAB -->
+    <div id="settings" class="tab-content">
+        <div class="grid-stack" id="gs-settings">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="6" gs-h="10">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Identity Tokens</h3>
+                        <div class="form-group"><label>STAKE API CLOUD TOKEN</label><input type="password"
+                                id="stake-token" placeholder="••••••••••••••••"></div>
+                        <div class="form-group"><label>GEMINI AI KEY</label><input type="password" id="gemini_key"
+                                placeholder="••••••••••••••••"></div>
+                        <button class="btn-start" style="width:100%; margin-top:auto;" onclick="saveGeminiKey()">RE-SYNC
+                            IDENTITIES</button>
+                    </div>
+                </div>
+            </div>
+            <div class="grid-stack-item" gs-x="6" gs-y="0" gs-w="6" gs-h="10">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Account Status & Assets</h3>
+                        <div
+                            style="background:rgba(255,255,255,0.02); padding:1.5rem; border-radius:14px; border:1px solid var(--border); margin-bottom:1.5rem;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:1rem;">
+                                <span id="vip-rank" style="font-weight:700; color:#fff;">CHECKING...</span>
+                                <span id="vip-pct"
+                                    style="font-family:var(--font-mono); color:var(--primary);">0.00%</span>
+                            </div>
+                            <div
+                                style="height:12px; background:rgba(0,0,0,0.4); border-radius:6px; overflow:hidden; border:1px solid rgba(255,255,255,0.05);">
+                                <div id="vip-fill"
+                                    style="width:0%; height:100%; background:linear-gradient(90deg, var(--primary), var(--accent)); transition:width 1s cubic-bezier(0.16, 1, 0.3, 1);">
+                                </div>
+                            </div>
+                        </div>
+                        <div id="wallet-list" class="panel-scroll"
+                            style="display:flex; flex-direction:column; gap:0.5rem; flex-grow:1; overflow-y:auto;">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- System Dependencies -->
+    <script src="{{ url_for('static', filename='js/auth.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/strategies.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/editor.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/games.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+
+</html>
