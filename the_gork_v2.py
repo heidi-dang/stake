@@ -1273,6 +1273,7 @@ DASHBOARD_HTML = """<!DOCTYPE html>
         <button class="tab-btn" onclick="openTab(this, 'simulate')">BENCHMARK / SIMULATOR</button>
         <button class="tab-btn" onclick="openTab(this, 'editor')">STRATEGY EDITOR</button>
         <button class="tab-btn" onclick="openTab(this, 'dragon')">DRAGON PREDICTOR</button>
+        <button class="tab-btn" onclick="openTab(this, 'dice-predict')">🎲 DICE PREDICTOR</button>
         <button class="tab-btn" onclick="openTab(this, 'games')">🕹️ GAMES</button>
         <button class="tab-btn" onclick="openTab(this, 'settings')">⚙ VIP & SETTINGS</button>
     </div>
@@ -1998,11 +1999,64 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                     </div>
                 </div>
             </div>
+        <!-- DICE PREDICTOR TAB -->
+    <div id="dice-predict" class="tab-content">
+        <div class="grid-stack" id="gs-dice-predict">
+            <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="6" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h3>Dice Predictor Config</h3>
+                        <div class="form-group">
+                            <label>Server Seed</label>
+                            <input id="dice_pred_server" type="text" placeholder="Paste server seed...">
+                        </div>
+                        <div class="form-group">
+                            <label>Client Seed</label>
+                            <input id="dice_pred_client" type="text" placeholder="Paste client seed...">
+                        </div>
+                        <div class="form-group">
+                            <label>Nonce</label>
+                            <input id="dice_pred_nonce" type="number" value="0">
+                        </div>
+                        <div class="config-grid">
+                            <div class="form-group">
+                                <label>Target</label>
+                                <input id="dice_pred_target" type="number" step="0.01" value="50.50">
+                            </div>
+                            <div class="form-group">
+                                <label>Condition</label>
+                                <select id="dice_pred_condition">
+                                    <option value="over">Over</option>
+                                    <option value="under">Under</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="btn-start" style="width:100%; margin-top:1rem;" onclick="predictDice()">PREDICT NEXT ROLL</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-stack-item" gs-x="6" gs-y="0" gs-w="6" gs-h="auto">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel" style="text-align:center;">
+                        <h3>Prediction Result</h3>
+                        <div id="dice_pred_visual" style="font-size:4rem; font-weight:bold; margin: 2rem 0; color: rgba(255,255,255,0.1); transition: all 0.3s;">
+                            --.--
+                        </div>
+                        <div id="dice_pred_status" style="font-size:1.2rem; font-weight:bold; height:1.5rem;"></div>
+                        <div style="margin-top:2rem; font-size:0.8rem; color:var(--secondary);">
+                            Derived using official Stake.com HMAC-SHA256 float conversion.
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- GAMES TAB -->
-    <div id="games" class="tab-content" style="display:none;">
+    <div id="games" class="tab-content">
         <div class="grid-stack" id="gs-games">
             <div class="grid-stack-item" gs-x="0" gs-y="0" gs-w="4" gs-h="auto">
                 <div class="grid-stack-item-content">
@@ -2723,19 +2777,6 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 if(cfg.starting_balance) document.getElementById('sim_balance').value = cfg.starting_balance;
                 const map = { base_bet_pct:'s_g_base', session_tp_pct:'s_g_tp', session_sl_pct:'s_g_sl', daily_loss_cap_pct:'s_g_daily',
                     die_last_base_bet_pct:'s_dl_base', die_last_tp_pct:'s_dl_tp', die_last_sl_pct:'s_dl_sl', die_last_daily_loss_cap_pct:'s_dl_daily',
-                    vanish_base_bet_pct:'s_v_base', vanish_tp_pct:'s_v_tp', vanish_sl_pct:'s_v_sl', vanish_daily_loss_cap_pct:'s_v_daily',
-                    eternal_base_bet_pct:'s_e_base', eternal_tp_pct:'s_e_tp', eternal_sl_pct:'s_e_sl', eternal_daily_loss_cap_pct:'s_e_daily',
-                    ema_base_bet_pct:'s_ema_base' };
-                Object.entries(map).forEach(([k,v]) => { if(cfg[k] !== undefined && document.getElementById(v)) document.getElementById(v).value = cfg[k]; });
-            });
-        }
-
-        function deletePreset(id) {
-            if(!confirm('Delete this preset?')) return;
-            fetch('/strategies/' + id, {method:'DELETE'}).then(()=>loadPresets());
-        }
-
-        // Initialize Ace Editor
         const editor = ace.edit("ace-editor");
         editor.setTheme("ace/theme/tomorrow_night_eighties");
         editor.session.setMode("ace/mode/python");
@@ -2888,6 +2929,43 @@ DASHBOARD_HTML = """<!DOCTYPE html>
                 resDiv.style.color = 'var(--danger)';
                 resDiv.innerHTML = 'Error communicating with server.';
             });
+        }
+
+        async function predictDice() {
+            const server = document.getElementById('dice_pred_server').value;
+            const client = document.getElementById('dice_pred_client').value;
+            const nonce = document.getElementById('dice_pred_nonce').value;
+            const target = parseFloat(document.getElementById('dice_pred_target').value);
+            const cond = document.getElementById('dice_pred_condition').value;
+
+            if(!server || !client) { alert("Please provide seeds."); return; }
+
+            const r = await fetch('/api/dice/predict', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json', 'Authorization': 'Bearer ' + localStorage.getItem('gork_jwt')},
+                body: JSON.stringify({server_seed: server, client_seed: client, nonce: parseInt(nonce)})
+            });
+            const data = await r.json();
+            if (data.roll !== undefined) {
+                const roll = data.roll;
+                const visual = document.getElementById('dice_pred_visual');
+                const status = document.getElementById('dice_pred_status');
+                
+                visual.innerText = roll.toFixed(2);
+                let win = false;
+                if (cond === 'over' && roll > target) win = true;
+                if (cond === 'under' && roll < target) win = true;
+
+                if (win) {
+                    visual.style.color = 'var(--success)';
+                    status.innerText = "WINNER";
+                    status.style.color = 'var(--success)';
+                } else {
+                    visual.style.color = 'var(--danger)';
+                    status.innerText = "LOSER";
+                    status.style.color = 'var(--danger)';
+                }
+            }
         }
 
         async function predictDragon() {
@@ -3071,6 +3149,20 @@ def login():
         token = jwt.encode({'user': 'admin', 'exp': datetime.utcnow() + timedelta(hours=24)}, app.config['SECRET_KEY'], algorithm="HS256")
         return jsonify({'token': token})
     return jsonify({'error': 'Invalid credentials'}), 401
+
+@app.route('/api/dice/predict', methods=['POST'])
+@token_required
+def api_dice_predict():
+    data = request.json
+    server = data.get('server_seed')
+    client = data.get('client_seed')
+    nonce = data.get('nonce', 0)
+    
+    if not server or not client:
+        return jsonify({'error': 'Missing seeds'}), 400
+        
+    roll = stake_derive_roll(server, client, nonce)
+    return jsonify({'roll': roll})
 
 @app.route('/api/dragon_tower/predict', methods=['POST'])
 @token_required
