@@ -127,15 +127,9 @@ function startBot() {
     // Strategy specific mapping
     const mappings = {
         the_gork: { bg: 'g_base', tp: 'g_tp', sl: 'g_sl', dl: 'g_daily' },
-        die_last: { bg: 'dl_base', tp: 'dl_tp', sl: 'dl_sl', dl: 'dl_daily' },
-        vanish_in_volume: { bg: 'v_base', tp: 'v_tp', sl: 'v_sl', dl: 'v_daily' },
-        eternal_volume: { bg: 'e_base', dl: 'e_daily' },
-        ema_cross: { bg: 'ema_base', dl: 'ema_daily' },
-        reverted_martingale: { bg: 'rm_base', tp: 'rm_tp', sl: 'rm_sl', dl: 'rm_daily', ml: 'rm_loss' },
-        wager_grind_99: { bg: 'wg99_base', dl: 'wg99_daily' },
-        fibonacci: { bg: 'fib_base', dl: 'fib_daily' },
-        paroli: { bg: 'par_base', dl: 'par_daily' },
-        oscars_grind: { bg: 'osc_base', dl: 'osc_daily' }
+        martingale: { bg: 'martingale_base_usd', mult: 'martingale_mult', max: 'martingale_max_usd' },
+        dalembert: { bg: 'dalembert_base_usd' },
+        labouchere: { bg: 'labouchere_base_usd' }
     };
 
     const m = mappings[strat];
@@ -145,17 +139,15 @@ function startBot() {
             const el = document.getElementById(inputId);
             if (el) {
                 const val = parseFloat(el.value);
-                if (key === 'bg') data[strat + '_base_bet_usd'] = val;
-                else if (key === 'tp') {
-                    if (strat === 'reverted_martingale') data['session_tp_usd'] = val;
-                    else data[strat + '_tp_usd'] = val;
+                if (key === 'bg') {
+                    if (strat === 'the_gork') data[strat + '_base_usd'] = val;
+                    else data[strat + '_base_usd'] = val;
                 }
+                else if (key === 'tp') data[strat + '_tp_usd'] = val;
                 else if (key === 'sl') data[strat + '_sl_usd'] = val;
-                else if (key === 'dl') {
-                    if (strat === 'reverted_martingale') data['daily_loss_cap_usd'] = val;
-                    else data[strat + '_daily_loss_cap_usd'] = val;
-                }
-                else if (key === 'ml') data[strat + '_mult_on_loss'] = val;
+                else if (key === 'dl') data[strat + '_daily_loss_cap_usd'] = val;
+                else if (key === 'mult') data[strat + '_mult'] = val;
+                else if (key === 'max') data[strat + '_max_usd'] = val;
             }
         });
     } else if (strat === 'custom') {

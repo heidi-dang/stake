@@ -22,10 +22,7 @@ function toggleStrat() {
     document.querySelectorAll('.strat-panel').forEach(p => p.style.display = 'none');
 
     const desc = document.getElementById('strat-desc');
-    const configId = (strat === 'ema_cross' ? 'ema_config' :
-        strat === 'vanish_in_volume' ? 'vanish_config' :
-            strat === 'eternal_volume' ? 'eternal_config' :
-                strat + '_config');
+    const configId = strat + '_config';
 
     const panel = document.getElementById(configId);
     if (panel) panel.style.display = 'block';
@@ -48,12 +45,9 @@ function simToggleStrat() {
     const map = {
         the_gork: 'sim_gork_config',
         basic: 'sim_basic_config',
-        ema_cross: 'sim_ema_config',
-        die_last: 'sim_die_last_config',
-        vanish_in_volume: 'sim_vanish_config',
-        eternal_volume: 'sim_eternal_config',
-        reverted_martingale: 'sim_reverted_martingale_config',
-        wager_grind_99: 'sim_wager_grind_99_config',
+        martingale: 'sim_martingale_config',
+        dalembert: 'sim_dalembert_config',
+        labouchere: 'sim_labouchere_config',
         custom: 'sim_custom_config'
     };
 

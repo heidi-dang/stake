@@ -150,11 +150,17 @@ def betting_loop():
         with state_lock:
             cur_bal = state['balance']['available']
             bet, cond, tgt = engine.calculate_bet(state['strategy'], cur_bal)
+            
+            # Deduct bet BEFORE the roll to match reality
+            bet = min(bet, cur_bal)
             state['current_bet'] = bet
+            state['balance']['available'] -= bet
 
         # Real bet or mock
         roll = stake_derive_roll(state['server_seed_hash'], state['client_seed'], state['nonce'])
         won = roll > tgt if cond == "over" else roll < tgt
+        win_chance = (100.0 - tgt) if cond == 'over' else tgt
+        multiplier = (100.0 / win_chance) * 0.99
         
         with state_lock:
             state['nonce'] += 1
@@ -163,18 +169,8 @@ def betting_loop():
             state['recent_outcomes'].append(won)
             state['roll_history'].append(roll)
             
-            # Update streaks
-            if won: 
-                state['current_win_streak'] += 1; state['current_lose_streak'] = 0
-                win_chance = (100.0 - tgt) if cond == 'over' else tgt
-                mult = (100.0 / win_chance) * 0.99
-                state['balance']['available'] += (bet * mult)
-            else: 
-                state['current_lose_streak'] += 1; state['current_win_streak'] = 0
-                state['balance']['available'] -= bet
-
-            if state['balance']['available'] > state['peak_balance']:
-                state['peak_balance'] = state['balance']['available']
+            # Engine handles streaks, balance additions, and strategy memory
+            engine.update_state(won, roll, bet, multiplier)
 
             # Calculate EMA for Chart
             with sqlite3.connect(DB_PATH) as conn:

@@ -126,13 +126,123 @@ class GorkEngine:
         bet_coin = self.usd_to_coin(base_bet_usd * shrink * mult * circuit)
         return max(cfg.get('min_bet_floor', 0.000001), min(bet_coin, balance * 0.003))
 
+    def update_state(self, won, roll, bet, multiplier):
+        """Called by simulator and real-time loop after a roll is resolved."""
+        strat = self.state['strategy']
+        
+        # Base updates
+        if won:
+            self.state['current_win_streak'] += 1
+            self.state['current_lose_streak'] = 0
+            self.state['balance']['available'] += (bet * multiplier)
+        else:
+            self.state['current_lose_streak'] += 1
+            self.state['current_win_streak'] = 0
+            self.state['balance']['available'] -= bet
+            
+        if self.state['balance']['available'] > self.state['peak_balance']:
+            self.state['peak_balance'] = self.state['balance']['available']
+
+        # Strategy-specific updates
+        if strat == 'basic':
+            cfg = self.state['config']
+            if won:
+                action = cfg.get('basic_on_win', 'reset')
+                if action == 'reset':
+                    self.state['basic_current_bet_usd'] = float(cfg.get('basic_bet_amount', 1.0))
+                elif action == 'multiply':
+                    self.state['basic_current_bet_usd'] = self.state.get('basic_current_bet_usd', 1.0) * float(cfg.get('basic_win_mult', 1.0))
+            else:
+                action = cfg.get('basic_on_loss', 'multiply')
+                if action == 'reset':
+                    self.state['basic_current_bet_usd'] = float(cfg.get('basic_bet_amount', 1.0))
+                elif action == 'multiply':
+                    self.state['basic_current_bet_usd'] = self.state.get('basic_current_bet_usd', 1.0) * float(cfg.get('basic_loss_mult', 2.0))
+
+        elif strat == 'martingale':
+            cfg = self.state['config']
+            base_usd = float(cfg.get('martingale_base_usd', 1.0))
+            mult = float(cfg.get('martingale_mult', 2.0))
+            if won:
+                self.state['martingale_current_usd'] = base_usd
+            else:
+                current = self.state.get('martingale_current_usd', base_usd)
+                self.state['martingale_current_usd'] = current * mult
+
+        elif strat == 'dalembert':
+            cfg = self.state['config']
+            base_usd = float(cfg.get('dalembert_base_usd', 1.0))
+            if won:
+                current = self.state.get('dalembert_current_usd', base_usd)
+                self.state['dalembert_current_usd'] = max(base_usd, current - base_usd)
+            else:
+                current = self.state.get('dalembert_current_usd', base_usd)
+                self.state['dalembert_current_usd'] = current + base_usd
+
+        elif strat == 'labouchere':
+            cfg = self.state['config']
+            base_usd = float(cfg.get('labouchere_base_usd', 1.0))
+            seq = self.state.get('lab_sequence', [])
+            
+            if not seq: 
+                # Create default sequence 1, 2, 3
+                seq = [base_usd, base_usd * 2, base_usd * 3]
+                
+            if won:
+                if len(seq) > 0: seq.pop(0)
+                if len(seq) > 0: seq.pop()
+            else:
+                bet_usd = seq[0] + seq[-1] if len(seq) > 1 else (seq[0] if seq else base_usd)
+                seq.append(bet_usd)
+                
+            if not seq: # Reset if list is cleared (cycle completed)
+                seq = [base_usd, base_usd * 2, base_usd * 3]
+                
+            self.state['lab_sequence'] = seq
+
     def calculate_gork_bet(self, balance):
         cfg = self.state['config']
-        distance = balance - self.state.get('daily_start_balance', balance)
-        max_bet_coin = self.usd_to_coin(cfg.get('base_bet_usd', 1.0))
-        recovery = abs(distance) * 1.2 if distance < 0 else 0
-        bet = min(max_bet_coin, recovery)
-        return max(cfg.get('min_bet_floor', 0.000001), min(bet, balance * 0.003))
+        start_bal = self.state.get('daily_start_balance', balance)
+        distance = start_bal - balance
+        
+        base_bet_usd = cfg.get('the_gork_base_usd', 1.0)
+        max_recovery_usd = base_bet_usd * 10.0 # Don't go crazy
+        
+        if distance <= 0:
+            target_usd = base_bet_usd
+        else:
+            # Need to recover distance. Bet enough to win back the distance
+            # If target is 2.0x (50%), we need to bet `distance` to win `distance` profit
+            target_usd = min(max_recovery_usd, (distance * 1.05) + base_bet_usd)
+            
+        bet_coin = self.usd_to_coin(target_usd)
+        return max(cfg.get('min_bet_floor', 0.000001), min(bet_coin, balance * 0.1)), "over", 50.50
+
+    def calculate_martingale_bet(self, balance):
+        cfg = self.state['config']
+        current_usd = self.state.get('martingale_current_usd', cfg.get('martingale_base_usd', 1.0))
+        max_usd = cfg.get('martingale_max_usd', 100.0)
+        bet_usd = min(current_usd, max_usd)
+        bet_coin = self.usd_to_coin(bet_usd)
+        return max(cfg.get('min_bet_floor', 0.000001), min(bet_coin, balance * 0.5)), "over", cfg.get('martingale_target', 50.50)
+
+    def calculate_dalembert_bet(self, balance):
+        cfg = self.state['config']
+        current_usd = self.state.get('dalembert_current_usd', cfg.get('dalembert_base_usd', 1.0))
+        bet_coin = self.usd_to_coin(current_usd)
+        return max(cfg.get('min_bet_floor', 0.000001), min(bet_coin, balance * 0.5)), "over", cfg.get('dalembert_target', 50.50)
+
+    def calculate_labouchere_bet(self, balance):
+        cfg = self.state['config']
+        base_usd = float(cfg.get('labouchere_base_usd', 1.0))
+        seq = self.state.get('lab_sequence', [])
+        if not seq: 
+            seq = [base_usd, base_usd * 2, base_usd * 3]
+            self.state['lab_sequence'] = seq
+            
+        bet_usd = seq[0] + seq[-1] if len(seq) > 1 else (seq[0] if seq else base_usd)
+        bet_coin = self.usd_to_coin(bet_usd)
+        return max(cfg.get('min_bet_floor', 0.000001), min(bet_coin, balance * 0.5)), "over", cfg.get('labouchere_target', 50.50)
 
     def calculate_basic_bet(self, balance):
         cfg = self.state['config']
@@ -142,68 +252,13 @@ class GorkEngine:
         bet_coin = self.usd_to_coin(self.state['basic_current_bet_usd'])
         return max(cfg.get('min_bet_floor', 0.000001), bet_coin), cfg.get('basic_condition', 'over'), cfg.get('basic_target', 50.50)
 
-    def calculate_reverted_martingale_bet(self, balance):
-        cfg = self.state['config']
-        base_bet_usd = cfg.get('rm_base_bet_usd', 0.5)
-        start_bal = self.state.get('daily_start_balance', balance)
-        session_pct = ((balance - start_bal) / start_bal * 100) if start_bal > 0 else 0
-        target = 50.50
-        if session_pct < -0.5: target = 60.50
-        if session_pct < -1.0: target = 70.50
-        factor = max(0.1, 1.0 - (session_pct / cfg.get('session_tp_usd', 10.0)/10.0)) # Mapping TP usd roughly
-        if session_pct < 0:
-            dd_factor = abs(session_pct) / abs(cfg.get('session_sl_usd', -5.0))
-            factor = 1.0 + (min(dd_factor, 1.0) * 2.0)
-        
-        bet_coin = self.usd_to_coin(base_bet_usd * factor)
-        return max(cfg.get('min_bet_floor', 0.000001), min(bet_coin, balance * 0.05)), "over", target
-
-    def calculate_wager_grind_99(self, balance):
-        cfg = self.state['config']
-        bet_coin = self.usd_to_coin(cfg.get('wg99_base_bet_usd', 1.0))
-        return max(cfg.get('min_bet_floor', 0.000001), min(bet_coin, balance * 0.1)), "over", 1.00
-
-    def calculate_fibonacci_bet(self, balance):
-        cfg = self.state['config']
-        base_bet_usd = cfg.get('fib_base_bet_usd', 0.5)
-        def fib(n):
-            if n <= 1: return 1
-            a, b = 1, 1
-            for _ in range(2, n + 1): a, b = b, a + b
-            return b
-        multiplier = fib(self.state.get('fib_index', 0))
-        bet_coin = self.usd_to_coin(base_bet_usd * multiplier)
-        return max(cfg.get('min_bet_floor', 0.000001), min(bet_coin, balance * 0.1)), "over", 100.0 - cfg.get('fib_win_chance', 49.50)
-
-    def calculate_paroli_bet(self, balance):
-        cfg = self.state['config']
-        base_bet_usd = cfg.get('par_base_bet_usd', 0.25)
-        mult = 2 ** self.state.get('par_streak', 0) if self.state.get('par_streak', 0) > 0 else 1
-        bet_coin = self.usd_to_coin(base_bet_usd * mult)
-        return max(cfg.get('min_bet_floor', 0.000001), min(bet_coin, balance * 0.1)), "over", 100.0 - cfg.get('par_win_chance', 49.50)
-
-    def calculate_oscars_grind_bet(self, balance):
-        cfg = self.state['config']
-        base_unit_usd = cfg.get('osc_base_bet_usd', 0.5)
-        bet_usd = base_unit_usd * self.state.get('osc_current_unit', 1)
-        profit_needed_usd = base_unit_usd - self.state.get('osc_session_profit_usd', 0)
-        if profit_needed_usd > 0 and bet_usd > profit_needed_usd: bet_usd = profit_needed_usd
-        if bet_usd <= 0: bet_usd = base_unit_usd
-        
-        bet_coin = self.usd_to_coin(bet_usd)
-        return max(cfg.get('min_bet_floor', 0.000001), min(bet_coin, balance * 0.1)), "over", 100.0 - cfg.get('osc_win_chance', 49.50)
-
     def calculate_bet(self, strategy, balance):
-        if strategy == 'the_gork': return self.calculate_gork_bet(balance), "over", 50.50
-        if strategy == 'die_last': return self.calculate_die_last_bet(balance), "over", 50.50
-        if strategy == 'ema_cross': return self.calculate_ema_cross_bet(balance)
-        if strategy == 'vanish_in_volume': return self.calculate_vanish_bet(balance), "over", 50.50
-        if strategy == 'eternal_volume': return self.calculate_eternal_volume_bet(balance), "over", 50.50
-        if strategy == 'reverted_martingale': return self.calculate_reverted_martingale_bet(balance)
-        if strategy == 'wager_grind_99': return self.calculate_wager_grind_99(balance)
-        if strategy == 'fibonacci': return self.calculate_fibonacci_bet(balance)
-        if strategy == 'paroli': return self.calculate_paroli_bet(balance)
-        if strategy == 'oscars_grind': return self.calculate_oscars_grind_bet(balance)
+        if strategy == 'the_gork': return self.calculate_gork_bet(balance)
+        if strategy == 'martingale': return self.calculate_martingale_bet(balance)
+        if strategy == 'dalembert': return self.calculate_dalembert_bet(balance)
+        if strategy == 'labouchere': return self.calculate_labouchere_bet(balance)
         if strategy == 'basic': return self.calculate_basic_bet(balance)
-        # Custom logic
+        # Default fallback
         return self.usd_to_coin(1.0), "over", 50.50
+
+

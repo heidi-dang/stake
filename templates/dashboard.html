@@ -122,18 +122,12 @@
                         <div class="form-group">
                             <label>Selection</label>
                             <select id="strategy" onchange="toggleStrat()">
-                                <option value="the_gork">THE GORK (FLAGSHIP)</option>
-                                <option value="die_last">DIE LAST (AGGRESSIVE)</option>
-                                <option value="vanish_in_volume">VANISH IN VOLUME</option>
-                                <option value="eternal_volume">ETERNAL VOLUME</option>
-                                <option value="ema_cross">EMA CROSS TREND</option>
-                                <option value="reverted_martingale">REVERTED MARTINGALE</option>
-                                <option value="wager_grind_99">WAGER GRIND 99%</option>
-                                <option value="fibonacci">FIBONACCI RECOVERY</option>
-                                <option value="paroli">PAROLI STREAK</option>
-                                <option value="oscars_grind">OSCAR'S GRIND</option>
-                                <option value="basic">BASIC MUTATOR</option>
-                                <option value="custom">CUSTOM SCRIPT</option>
+                                <option value="the_gork">THE GORK (RECOVERY)</option>
+                                <option value="martingale">MARTINGALE</option>
+                                <option value="dalembert">D'ALEMBERT</option>
+                                <option value="labouchere">LABOUCHERE</option>
+                                <option value="basic">BASIC (STATIC)</option>
+                                <option value="custom">CUSTOM ALGORITHM</option>
                             </select>
                         </div>
                         <div id="strat-desc"
@@ -152,66 +146,21 @@
                                 <div class="form-group"><label>Daily Loss Cap ($)</label><input type="number"
                                         id="g_daily" value="-20.0"></div>
                             </div>
-                            <div id="die_last_config" class="strat-panel"
-                                style="display:none; height:100%; display:flex; flex-direction:column;">
-                                <div class="form-group"><label>Base Bet ($) <span class="conv-val"></span></label><input
-                                        type="number" id="dl_base" value="0.5" step="0.000001"
-                                        oninput="updateConv(this)"></div>
-                                <div class="form-group"><label>Take Profit ($)</label><input type="number" id="dl_tp"
-                                        value="5.0"></div>
-                                <div class="form-group"><label>Stop Loss ($)</label><input type="number" id="dl_sl"
-                                        value="-2.5"></div>
+                            <div id="martingale_config" class="strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number"
+                                        id="martingale_base_usd" value="1.0" step="0.01"></div>
+                                <div class="form-group"><label>Multiplier on Loss</label><input type="number"
+                                        id="martingale_mult" value="2.0" step="0.1"></div>
+                                <div class="form-group"><label>Max Bet Cap ($)</label><input type="number"
+                                        id="martingale_max_usd" value="100.0" step="1.0"></div>
                             </div>
-                            <!-- All other configs follow the same pattern... -->
-                            <div id="vanish_config" class="strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($) <span class="conv-val"></span></label><input
-                                        type="number" id="v_base" value="0.5" step="0.000001"
-                                        oninput="updateConv(this)"></div>
-                                <div class="form-group"><label>Take Profit ($)</label><input type="number" id="v_tp"
-                                        value="5.0"></div>
-                                <div class="form-group"><label>Stop Loss ($)</label><input type="number" id="v_sl"
-                                        value="-3.0"></div>
+                            <div id="dalembert_config" class="strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Unit ($)</label><input type="number"
+                                        id="dalembert_base_usd" value="1.0" step="0.01"></div>
                             </div>
-                            <div id="eternal_config" class="strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($) <span class="conv-val"></span></label><input
-                                        type="number" id="e_base" value="0.25" step="0.000001"
-                                        oninput="updateConv(this)"></div>
-                            </div>
-                            <div id="ema_config" class="strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($) <span class="conv-val"></span></label><input
-                                        type="number" id="ema_base" value="1.0" step="0.000001"
-                                        oninput="updateConv(this)"></div>
-                            </div>
-                            <div id="reverted_martingale_config" class="strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($) <span class="conv-val"></span></label><input
-                                        type="number" id="rm_base" value="0.5" step="0.000001"
-                                        oninput="updateConv(this)"></div>
-                                <div class="form-group"><label>Session TP ($)</label><input type="number" id="rm_tp"
-                                        value="10.0"></div>
-                            </div>
-                            <div id="wg99_config" class="strat-panel" style="display:none;">
-                                <div class="form-group">
-                                    <label>Base Bet %</label>
-                                    <input type="number" id="wg99_base" value="0.05" step="0.01">
-                                </div>
-                            </div>
-                            <div id="fibonacci_config" class="strat-panel" style="display:none;">
-                                <div class="form-group">
-                                    <label>Base Bet %</label>
-                                    <input type="number" id="fib_base" value="0.001" step="0.0001">
-                                </div>
-                            </div>
-                            <div id="paroli_config" class="strat-panel" style="display:none;">
-                                <div class="form-group">
-                                    <label>Base Bet %</label>
-                                    <input type="number" id="par_base" value="0.0005" step="0.0001">
-                                </div>
-                            </div>
-                            <div id="oscars_grind_config" class="strat-panel" style="display:none;">
-                                <div class="form-group">
-                                    <label>Base Bet %</label>
-                                    <input type="number" id="osc_base" value="0.001" step="0.0001">
-                                </div>
+                            <div id="labouchere_config" class="strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Unit ($)</label><input type="number"
+                                        id="labouchere_base_usd" value="1.0" step="0.01"></div>
                             </div>
                             <div id="basic_config" class="strat-panel" style="display:none;">
                                 <div class="form-group"><label>Bet Amount</label><input type="number"
@@ -292,18 +241,12 @@
                         <div class="form-group">
                             <label>Algorithm</label>
                             <select id="sim_strategy" onchange="simToggleStrat()">
-                                <option value="the_gork">THE GORK</option>
-                                <option value="die_last">DIE LAST</option>
-                                <option value="vanish_in_volume">VANISH</option>
-                                <option value="eternal_volume">ETERNAL</option>
-                                <option value="ema_cross">EMA CROSS</option>
-                                <option value="reverted_martingale">REVERTED MARTINGALE</option>
-                                <option value="wager_grind_99">WAGER GRIND</option>
-                                <option value="fibonacci">FIBONACCI</option>
-                                <option value="paroli">PAROLI</option>
-                                <option value="oscars_grind">OSCAR'S GRIND</option>
-                                <option value="basic">BASIC</option>
-                                <option value="custom">CUSTOM</option>
+                                <option value="the_gork">THE GORK (RECOVERY)</option>
+                                <option value="martingale">MARTINGALE</option>
+                                <option value="dalembert">D'ALEMBERT</option>
+                                <option value="labouchere">LABOUCHERE</option>
+                                <option value="basic">BASIC (STATIC)</option>
+                                <option value="custom">CUSTOM ALGORITHM</option>
                             </select>
                         </div>
                         <hr style="border:none; border-top:1px solid var(--border); margin:1rem 0;">
@@ -319,52 +262,21 @@
                                 <div class="form-group"><label>SL ($)</label><input type="number" id="s_g_sl"
                                         value="-5.0"></div>
                             </div>
-                            <div id="sim_die_last_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_dl_base"
-                                        value="1.0" step="0.000001"></div>
-                                <div class="form-group"><label>TP ($)</label><input type="number" id="s_dl_tp"
-                                        value="10.0" step="0.1"></div>
-                                <div class="form-group"><label>SL ($)</label><input type="number" id="s_dl_sl"
-                                        value="-5.0" step="0.1"></div>
+                            <div id="sim_martingale_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number"
+                                        id="s_martingale_base_usd" value="1.0" step="0.01"></div>
+                                <div class="form-group"><label>Multiplier on Loss</label><input type="number"
+                                        id="s_martingale_mult" value="2.0" step="0.1"></div>
+                                <div class="form-group"><label>Max Bet Cap ($)</label><input type="number"
+                                        id="s_martingale_max_usd" value="100.0" step="1.0"></div>
                             </div>
-                            <div id="sim_vanish_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_v_base"
-                                        value="1.0" step="0.000001"></div>
-                                <div class="form-group"><label>TP ($)</label><input type="number" id="s_v_tp"
-                                        value="5.0">
-                                </div>
-                                <div class="form-group"><label>SL ($)</label><input type="number" id="s_v_sl"
-                                        value="-3.0"></div>
+                            <div id="sim_dalembert_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Unit ($)</label><input type="number"
+                                        id="s_dalembert_base_usd" value="1.0" step="0.01"></div>
                             </div>
-                            <div id="sim_eternal_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_e_base"
-                                        value="1.0" step="0.000001"></div>
-                            </div>
-                            <div id="sim_ema_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_ema_base"
-                                        value="1.0" step="0.000001"></div>
-                            </div>
-                            <div id="sim_reverted_martingale_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_rm_base"
-                                        value="1.0" step="0.000001"></div>
-                                <div class="form-group"><label>Session TP ($)</label><input type="number" id="s_rm_tp"
-                                        value="10.0"></div>
-                            </div>
-                            <div id="sim_wager_grind_99_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_wg99_base"
-                                        value="1.0" step="0.01"></div>
-                            </div>
-                            <div id="sim_fibonacci_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_fib_base"
-                                        value="1.0" step="0.000001"></div>
-                            </div>
-                            <div id="sim_paroli_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_par_base"
-                                        value="1.0" step="0.000001"></div>
-                            </div>
-                            <div id="sim_oscars_grind_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_osc_base"
-                                        value="1.0" step="0.000001"></div>
+                            <div id="sim_labouchere_config" class="sim-strat-panel" style="display:none;">
+                                <div class="form-group"><label>Base Unit ($)</label><input type="number"
+                                        id="s_labouchere_base_usd" value="1.0" step="0.01"></div>
                             </div>
                             <div id="sim_basic_config" class="sim-strat-panel" style="display:none;">
                                 <div class="form-group"><label>Target</label><input type="number" id="s_basic_target"

@@ -78,26 +78,16 @@ def run_simulation_internal(data, engine_class):
         if len(sim_state['roll_history']) > 100: sim_state['roll_history'].pop(0)
         
         if won:
-            win_chance = (100.0 - target) if condition == 'over' else target
-            multiplier = (100.0 / win_chance) * 0.99
-            sim_bal += (bet * multiplier)
             wins += 1
-            sim_state['current_win_streak'] += 1
-            sim_state['current_lose_streak'] = 0
-            
-            if strat == 'basic':
-                action = data.get('basic_on_win', 'reset')
-                if action == 'reset': sim_state['basic_current_bet'] = float(data.get('basic_bet_amount', 0.0001))
-                elif action == 'multiply': sim_state.get('basic_current_bet', 0) * float(data.get('basic_win_mult', 1.0))
         else:
             losses += 1
-            sim_state['current_win_streak'] = 0
-            sim_state['current_lose_streak'] += 1
             
-            if strat == 'basic':
-                action = data.get('basic_on_loss', 'multiply')
-                if action == 'reset': sim_state['basic_current_bet'] = float(data.get('basic_bet_amount', 0.0001))
-                elif action == 'multiply': sim_state['basic_current_bet'] = sim_state.get('basic_current_bet', 0.0001) * float(data.get('basic_loss_mult', 2.0))
+        win_chance = (100.0 - target) if condition == 'over' else target
+        multiplier = (100.0 / win_chance) * 0.99
+        
+        engine.update_state(won, roll, bet, multiplier)
+        sim_bal = sim_state['balance']['available']
+        sim_peak = sim_state['peak_balance']
         
         if sim_bal > sim_peak:
             sim_peak = sim_bal

@@ -259,15 +259,9 @@ function getSimParams() {
 
     const mappings = {
         the_gork: { bg: 's_g_base', tp: 's_g_tp', sl: 's_g_sl' },
-        ema_cross: { bg: 's_ema_base' },
-        die_last: { bg: 's_dl_base', tp: 's_dl_tp', sl: 's_dl_sl' },
-        vanish_in_volume: { bg: 's_v_base', tp: 's_v_tp', sl: 's_v_sl' },
-        eternal_volume: { bg: 's_e_base' },
-        reverted_martingale: { bg: 's_rm_base', tp: 's_rm_tp', sl: 's_rm_sl', ml: 's_rm_loss' },
-        wager_grind_99: { bg: 's_wg99_base' },
-        fibonacci: { bg: 's_fib_base' },
-        paroli: { bg: 's_par_base' },
-        oscars_grind: { bg: 's_osc_base' }
+        martingale: { bg: 's_martingale_base_usd', mult: 's_martingale_mult', max: 's_martingale_max_usd' },
+        dalembert: { bg: 's_dalembert_base_usd' },
+        labouchere: { bg: 's_labouchere_base_usd' }
     };
 
     const m = mappings[strat];
@@ -277,10 +271,14 @@ function getSimParams() {
             const el = document.getElementById(inputId);
             if (el) {
                 const val = parseFloat(el.value);
-                if (key === 'bg') data[strat + '_base_bet_usd'] = val;
+                if (key === 'bg') {
+                    if (strat === 'the_gork') data[strat + '_base_usd'] = val;
+                    else data[strat + '_base_usd'] = val;
+                }
                 else if (key === 'tp') data[strat + '_tp_usd'] = val;
                 else if (key === 'sl') data[strat + '_sl_usd'] = val;
-                else if (key === 'ml') data[strat + '_mult_on_loss'] = val;
+                else if (key === 'mult') data[strat + '_mult'] = val;
+                else if (key === 'max') data[strat + '_max_usd'] = val;
             }
         });
     } else if (strat === 'custom') {
