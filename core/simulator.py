@@ -15,7 +15,8 @@ def run_simulation_internal(data, engine_class):
     sim_state = {
         'config': data.copy(),
         'strategy': strat,
-        'balance': {'available': start_bal},
+        'balance': {'available': start_bal, 'currency': 'usd'},
+        'prices': {'usd': 1.0, 'btc': 1.0, 'eth': 1.0, 'ltc': 1.0},
         'daily_start_balance': start_bal,
         'daily_start_time': 0,
         'peak_balance': start_bal,
@@ -105,12 +106,12 @@ def run_simulation_internal(data, engine_class):
         dd_pct = (sim_bal - sim_peak) / sim_peak * 100 if sim_peak > 0 else 0
         if dd_pct < sim_worst_dd: sim_worst_dd = dd_pct
         
-        # Check for Session TP/SL
-        tp = data.get(f"{strat}_tp_pct", data.get('session_tp_pct', 3.0))
-        sl = data.get(f"{strat}_sl_pct", data.get('session_sl_pct', -1.4))
-        sess_pct = (sim_bal - sim_state['daily_start_balance']) / sim_state['daily_start_balance'] * 100 if sim_state['daily_start_balance'] > 0 else 0
+        # Check for Session TP/SL (USD-based)
+        tp_usd = data.get(f"{strat}_tp_usd", data.get('session_tp_usd', 10.0))
+        sl_usd = data.get(f"{strat}_sl_usd", data.get('session_sl_usd', -5.0))
+        sess_pnl = sim_bal - sim_state['daily_start_balance']
         
-        if sess_pct >= tp or sess_pct <= sl:
+        if sess_pnl >= tp_usd or sess_pnl <= sl_usd:
             cb_hits += 1
             sim_state['daily_start_balance'] = sim_bal
             sim_state['current_win_streak'] = 0
