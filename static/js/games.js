@@ -97,7 +97,7 @@ function playManualGame(game) {
     } else if (game === 'limbo') {
         amount = parseFloat(document.getElementById('limbo_manual_bet').value);
         payload.amount = amount;
-        payload.multiplier = parseFloat(document.getElementById('limbo_manual_target').value);
+        payload.multiplier = parseFloat(document.getElementById('limbo_manual_mult').value);
     } else if (game === 'plinko') {
         amount = parseFloat(document.getElementById('plinko_manual_bet').value);
         payload.amount = amount;
@@ -106,8 +106,11 @@ function playManualGame(game) {
     } else if (game === 'keno') {
         amount = parseFloat(document.getElementById('keno_manual_bet').value);
         payload.amount = amount;
-        let numsStr = document.getElementById('keno_manual_numbers').value;
-        payload.numbers = numsStr.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n));
+        let selectedNums = [];
+        document.querySelectorAll('#keno-grid .keno-num.selected').forEach(el => {
+            selectedNums.push(parseInt(el.dataset.num));
+        });
+        payload.numbers = selectedNums;
         if (payload.numbers.length === 0) {
             resDiv.style.color = 'var(--danger)';
             resDiv.innerHTML = 'Select at least one number.';
@@ -250,7 +253,7 @@ function getSimParams() {
         strategy: strat,
         starting_balance: parseFloat(document.getElementById('sim_balance').value),
         bets_to_simulate: parseInt(document.getElementById('sim_bets').value),
-        all_time_drawdown_cap_pct: parseFloat(document.getElementById('sim_atcap').value),
+        all_time_drawdown_cap_usd: parseFloat(document.getElementById('sim_atcap').value),
         min_bet_floor: parseFloat(document.getElementById('sim_floor').value)
     };
 
@@ -274,9 +277,9 @@ function getSimParams() {
             const el = document.getElementById(inputId);
             if (el) {
                 const val = parseFloat(el.value);
-                if (key === 'bg') data[strat + '_base_bet_pct'] = val;
-                else if (key === 'tp') data[strat + '_tp_pct'] = val;
-                else if (key === 'sl') data[strat + '_sl_pct'] = val;
+                if (key === 'bg') data[strat + '_base_bet_usd'] = val;
+                else if (key === 'tp') data[strat + '_tp_usd'] = val;
+                else if (key === 'sl') data[strat + '_sl_usd'] = val;
                 else if (key === 'ml') data[strat + '_mult_on_loss'] = val;
             }
         });
@@ -297,3 +300,33 @@ function getSimParams() {
     }
     return data;
 }
+
+// Keno grid initialization
+function initKenoGrid() {
+    const grid = document.getElementById('keno-grid');
+    if (!grid || grid.children.length > 0) return;
+    for (let i = 1; i <= 40; i++) {
+        const btn = document.createElement('div');
+        btn.textContent = i;
+        btn.dataset.num = i;
+        btn.className = 'keno-num';
+        btn.style.cssText = 'cursor:pointer; text-align:center; padding:6px 2px; border-radius:6px; font-size:0.75rem; font-weight:600; background:rgba(255,255,255,0.05); border:1px solid var(--border); color:var(--secondary); transition:all 0.2s;';
+        btn.addEventListener('click', () => {
+            const selected = grid.querySelectorAll('.keno-num.selected');
+            if (btn.classList.contains('selected')) {
+                btn.classList.remove('selected');
+                btn.style.background = 'rgba(255,255,255,0.05)';
+                btn.style.color = 'var(--secondary)';
+                btn.style.borderColor = 'var(--border)';
+            } else if (selected.length < 10) {
+                btn.classList.add('selected');
+                btn.style.background = 'rgba(255,71,87,0.2)';
+                btn.style.color = 'var(--danger)';
+                btn.style.borderColor = 'var(--danger)';
+            }
+        });
+        grid.appendChild(btn);
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initKenoGrid);

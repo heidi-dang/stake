@@ -1,5 +1,7 @@
 import requests
-from typing import Optional
+from typing import Optional, List
+from core.schemas import StakeDiceRoll, StakeLimboRoll, StakePlinkoRoll, StakeKenoRoll, StakeTip, StakeWithdrawal
+from pydantic import ValidationError
 
 ENDPOINT = "https://stake.com/_api/graphql"
 
@@ -71,6 +73,7 @@ class Stake:
         return response.json()
 
     def send_tip(self, user_id: str, amount: float, currency: str, is_public: bool = True, tfa_token: Optional[str] = None) -> dict:
+        StakeTip(user_id=user_id, amount=amount, currency=currency, is_public=is_public, tfa_token=tfa_token)
         json_data = {
             'query': 'mutation SendTip($userId: String!, $amount: Float!, $currency: CurrencyEnum!, $isPublic: Boolean, $chatId: String!, $tfaToken: String) {\n  sendTip(\n    userId: $userId\n    amount: $amount\n    currency: $currency\n    isPublic: $isPublic\n    chatId: $chatId\n    tfaToken: $tfaToken\n  ) {\n    id\n    amount\n    currency\n    user {\n      id\n      name\n      __typename\n    }\n    sendBy {\n      id\n      name\n      balances {\n        available {\n          amount\n          currency\n          __typename\n        }\n        vault {\n          amount\n          currency\n          __typename\n        }\n        __typename\n      }\n      __typename\n    }\n    __typename\n  }\n}\n',
             'operationName': 'SendTip',
@@ -133,6 +136,7 @@ class Stake:
         return response.json()
 
     def create_withdrawal(self, currency: str, address: str, amount: float, chain: Optional[str] = None, email_code: Optional[str] = None, tfa_token: Optional[str] = None, oauth_token: Optional[str] = None) -> dict:
+        StakeWithdrawal(currency=currency, address=address, amount=amount, chain=chain, email_code=email_code, tfa_token=tfa_token, oauth_token=oauth_token)
         json_data = {
             'query': 'mutation CreateWithdrawal($chain: CryptoChainEnum, $currency: CryptoCurrencyEnum!, $address: String!, $amount: Float!, $emailCode: String, $tfaToken: String, $oauthToken: String) {\n  createWithdrawal(\n    chain: $chain\n    currency: $currency\n    address: $address\n    amount: $amount\n    emailCode: $emailCode\n    tfaToken: $tfaToken\n    oauthToken: $oauthToken\n  ) {\n    id\n    __typename\n  }\n}\n',
             'operationName': 'CreateWithdrawal',
@@ -226,6 +230,7 @@ class Stake:
         return response.json()
 
     def dice_roll(self, amount: float, target: float, condition: str, currency: str, identifier: str = None) -> dict:
+        StakeDiceRoll(amount=amount, target=target, condition=condition, currency=currency, identifier=identifier)
         # condition: "above" or "below"
         json_data = {
             'query': 'mutation DiceRoll($amount: Float!, $target: Float!, $condition: CasinoGameDiceConditionEnum!, $currency: CurrencyEnum!, $identifier: String) {\n  diceRoll(amount: $amount, target: $target, condition: $condition, currency: $currency, identifier: $identifier) {\n    id\n    active\n    payout\n    payoutMultiplier\n    amount\n    currency\n    game\n    state {\n      ... on CasinoGameDice {\n        result\n        target\n        condition\n      }\n    }\n  }\n}',
@@ -241,6 +246,7 @@ class Stake:
         return response.json()
 
     def limbo_roll(self, amount: float, multiplier: float, currency: str, identifier: str = None) -> dict:
+        StakeLimboRoll(amount=amount, multiplier=multiplier, currency=currency, identifier=identifier)
         json_data = {
             'query': 'mutation LimboBet($amount: Float!, $multiplierTarget: Float!, $currency: CurrencyEnum!, $identifier: String) {\n  limboBet(amount: $amount, multiplierTarget: $multiplierTarget, currency: $currency, identifier: $identifier) {\n    id\n    active\n    payout\n    payoutMultiplier\n    amount\n    currency\n    game\n    state {\n      ... on CasinoGameLimbo {\n        result\n        multiplierTarget\n      }\n    }\n  }\n}',
             'variables': {
@@ -254,6 +260,7 @@ class Stake:
         return response.json()
 
     def plinko_roll(self, amount: float, risk: str, rows: int, currency: str, identifier: str = None) -> dict:
+        StakePlinkoRoll(amount=amount, risk=risk, rows=rows, currency=currency, identifier=identifier)
         # risk: "low", "medium", "high"
         # rows: 8 to 16
         json_data = {
@@ -270,6 +277,7 @@ class Stake:
         return response.json()
 
     def keno_roll(self, amount: float, numbers: list, currency: str, identifier: str = None) -> dict:
+        StakeKenoRoll(amount=amount, numbers=numbers, currency=currency, identifier=identifier)
         json_data = {
             'query': 'mutation KenoBet($amount: Float!, $numbers: [Int!]!, $currency: CurrencyEnum!, $identifier: String) {\n  kenoBet(amount: $amount, numbers: $numbers, currency: $currency, identifier: $identifier) {\n    id\n    active\n    payout\n    payoutMultiplier\n    amount\n    currency\n    game\n    state {\n      ... on CasinoGameKeno {\n        result\n        numbers\n      }\n    }\n  }\n}',
             'variables': {

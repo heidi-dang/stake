@@ -32,6 +32,11 @@
                 style="text-align:center; margin-bottom:2rem; color:var(--primary); letter-spacing:2px; font-size:1.1rem;">
                 SECURE AUTHENTICATION</h2>
             <div class="form-group">
+                <label>IDENTIFIER</label>
+                <input type="text" id="login-user" placeholder="Username" style="text-align:center; font-size:1rem;"
+                    onkeypress="if(event.key === 'Enter') submitLogin()">
+            </div>
+            <div class="form-group">
                 <label>SYSTEM ACCESS KEY</label>
                 <input type="password" id="login-pw" placeholder="••••••••"
                     style="text-align:center; font-size:1.2rem; letter-spacing:4px;"
@@ -41,7 +46,7 @@
                 style="width:100%; padding:1rem; font-size:1rem;">ESTABLISH CONNECTION</button>
             <div id="login-err"
                 style="color:var(--danger); margin-top:1.5rem; display:none; text-align:center; font-weight:600; font-size:0.8rem;">
-                ACCESS DENIED: INVALID KEY</div>
+                ACCESS DENIED: INVALID CREDENTIALS</div>
         </div>
     </div>
 
@@ -137,46 +142,52 @@
 
                         <div class="panel-scroll" style="overflow-y:auto; flex-grow:1; padding-right:5px;">
                             <div id="the_gork_config" class="strat-panel">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="g_base"
-                                        value="0.0012" step="0.0001"></div>
-                                <div class="form-group"><label>Take Profit %</label><input type="number" id="g_tp"
-                                        value="3.0"></div>
-                                <div class="form-group"><label>Stop Loss %</label><input type="number" id="g_sl"
-                                        value="-1.4"></div>
-                                <div class="form-group"><label>Daily Loss Cap %</label><input type="number" id="g_daily"
-                                        value="-10.0"></div>
+                                <div class="form-group"><label>Base Bet ($) <span class="conv-val"></span></label><input
+                                        type="number" id="g_base" value="1.0" step="0.000001"
+                                        oninput="updateConv(this)"></div>
+                                <div class="form-group"><label>Take Profit ($)</label><input type="number" id="g_tp"
+                                        value="10.0"></div>
+                                <div class="form-group"><label>Stop Loss ($)</label><input type="number" id="g_sl"
+                                        value="-5.0"></div>
+                                <div class="form-group"><label>Daily Loss Cap ($)</label><input type="number"
+                                        id="g_daily" value="-20.0"></div>
                             </div>
                             <div id="die_last_config" class="strat-panel"
                                 style="display:none; height:100%; display:flex; flex-direction:column;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="dl_base"
-                                        value="0.005" step="0.0001"></div>
-                                <div class="form-group"><label>Take Profit %</label><input type="number" id="dl_tp"
+                                <div class="form-group"><label>Base Bet ($) <span class="conv-val"></span></label><input
+                                        type="number" id="dl_base" value="0.5" step="0.000001"
+                                        oninput="updateConv(this)"></div>
+                                <div class="form-group"><label>Take Profit ($)</label><input type="number" id="dl_tp"
                                         value="5.0"></div>
-                                <div class="form-group"><label>Stop Loss %</label><input type="number" id="dl_sl"
+                                <div class="form-group"><label>Stop Loss ($)</label><input type="number" id="dl_sl"
                                         value="-2.5"></div>
                             </div>
                             <!-- All other configs follow the same pattern... -->
                             <div id="vanish_config" class="strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="v_base"
-                                        value="0.0015" step="0.0001"></div>
-                                <div class="form-group"><label>Take Profit %</label><input type="number" id="v_tp"
-                                        value="2.0"></div>
-                                <div class="form-group"><label>Stop Loss %</label><input type="number" id="v_sl"
-                                        value="-1.0"></div>
+                                <div class="form-group"><label>Base Bet ($) <span class="conv-val"></span></label><input
+                                        type="number" id="v_base" value="0.5" step="0.000001"
+                                        oninput="updateConv(this)"></div>
+                                <div class="form-group"><label>Take Profit ($)</label><input type="number" id="v_tp"
+                                        value="5.0"></div>
+                                <div class="form-group"><label>Stop Loss ($)</label><input type="number" id="v_sl"
+                                        value="-3.0"></div>
                             </div>
                             <div id="eternal_config" class="strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="e_base"
-                                        value="0.0012" step="0.0001"></div>
+                                <div class="form-group"><label>Base Bet ($) <span class="conv-val"></span></label><input
+                                        type="number" id="e_base" value="0.25" step="0.000001"
+                                        oninput="updateConv(this)"></div>
                             </div>
                             <div id="ema_config" class="strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="ema_base"
-                                        value="0.002" step="0.0001"></div>
+                                <div class="form-group"><label>Base Bet ($) <span class="conv-val"></span></label><input
+                                        type="number" id="ema_base" value="1.0" step="0.000001"
+                                        oninput="updateConv(this)"></div>
                             </div>
                             <div id="reverted_martingale_config" class="strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="rm_base"
-                                        value="0.0012" step="0.0001"></div>
-                                <div class="form-group"><label>On Loss Mult</label><input type="number" id="rm_loss"
-                                        value="1.5"></div>
+                                <div class="form-group"><label>Base Bet ($) <span class="conv-val"></span></label><input
+                                        type="number" id="rm_base" value="0.5" step="0.000001"
+                                        oninput="updateConv(this)"></div>
+                                <div class="form-group"><label>Session TP ($)</label><input type="number" id="rm_tp"
+                                        value="10.0"></div>
                             </div>
                             <div id="wg99_config" class="strat-panel" style="display:none;">
                                 <div class="form-group">
@@ -226,6 +237,25 @@
                     <div class="panel">
                         <h3>Audit Logs</h3>
                         <div id="logs"></div>
+
+                        <!-- AI Terminal Assistant -->
+                        <div style="margin-top: 1rem; border-top: 1px solid var(--border); padding-top: 1rem;">
+                            <h4
+                                style="margin-top:0; margin-bottom: 0.5rem; color: var(--secondary); font-size: 0.75rem; letter-spacing: 1px;">
+                                NATURAL LANGUAGE TERMINAL</h4>
+                            <div id="ai-chat" class="panel-scroll"
+                                style="height:150px; overflow-y:auto; margin-bottom:0.75rem; font-size:0.85rem; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 8px;">
+                            </div>
+                            <div style="display:flex; gap:0.5rem;">
+                                <input type="text" id="ai-input"
+                                    placeholder="e.g. Set strategy to the gork and base bet to 1$..."
+                                    style="flex-grow:1; font-size: 0.85rem; padding: 0.6rem;"
+                                    onkeypress="if(event.key === 'Enter') sendAiMessage()">
+                                <button class="btn-start"
+                                    style="padding: 0.6rem 1.2rem; font-size: 0.8rem; font-weight: 700; border-radius: 8px;"
+                                    onclick="sendAiMessage()">EXE</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -281,58 +311,60 @@
                         <div class="panel-scroll" style="overflow-y:auto; flex-grow:1; margin-bottom:1rem;">
                             <!-- Simulator specific strat panels -->
                             <div id="sim_gork_config" class="sim-strat-panel">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_g_base"
-                                        value="0.0012" step="0.0001"></div>
-                                <div class="form-group"><label>TP %</label><input type="number" id="s_g_tp" value="3.0">
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_g_base"
+                                        value="1.0" step="0.000001"></div>
+                                <div class="form-group"><label>TP ($)</label><input type="number" id="s_g_tp"
+                                        value="10.0">
                                 </div>
-                                <div class="form-group"><label>SL %</label><input type="number" id="s_g_sl"
-                                        value="-1.4"></div>
+                                <div class="form-group"><label>SL ($)</label><input type="number" id="s_g_sl"
+                                        value="-5.0"></div>
                             </div>
                             <div id="sim_die_last_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_dl_base"
-                                        value="0.005" step="0.0001"></div>
-                                <div class="form-group"><label>TP %</label><input type="number" id="s_dl_tp" value="5.0"
-                                        step="0.1"></div>
-                                <div class="form-group"><label>SL %</label><input type="number" id="s_dl_sl"
-                                        value="-2.5" step="0.1"></div>
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_dl_base"
+                                        value="1.0" step="0.000001"></div>
+                                <div class="form-group"><label>TP ($)</label><input type="number" id="s_dl_tp"
+                                        value="10.0" step="0.1"></div>
+                                <div class="form-group"><label>SL ($)</label><input type="number" id="s_dl_sl"
+                                        value="-5.0" step="0.1"></div>
                             </div>
                             <div id="sim_vanish_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_v_base"
-                                        value="0.0015" step="0.0001"></div>
-                                <div class="form-group"><label>TP %</label><input type="number" id="s_v_tp" value="2.0">
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_v_base"
+                                        value="1.0" step="0.000001"></div>
+                                <div class="form-group"><label>TP ($)</label><input type="number" id="s_v_tp"
+                                        value="5.0">
                                 </div>
-                                <div class="form-group"><label>SL %</label><input type="number" id="s_v_sl"
-                                        value="-1.0"></div>
+                                <div class="form-group"><label>SL ($)</label><input type="number" id="s_v_sl"
+                                        value="-3.0"></div>
                             </div>
                             <div id="sim_eternal_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_e_base"
-                                        value="0.0012" step="0.0001"></div>
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_e_base"
+                                        value="1.0" step="0.000001"></div>
                             </div>
                             <div id="sim_ema_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_ema_base"
-                                        value="0.002" step="0.0001"></div>
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_ema_base"
+                                        value="1.0" step="0.000001"></div>
                             </div>
                             <div id="sim_reverted_martingale_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_rm_base"
-                                        value="0.0012" step="0.0001"></div>
-                                <div class="form-group"><label>On Loss Mult</label><input type="number" id="s_rm_loss"
-                                        value="1.5"></div>
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_rm_base"
+                                        value="1.0" step="0.000001"></div>
+                                <div class="form-group"><label>Session TP ($)</label><input type="number" id="s_rm_tp"
+                                        value="10.0"></div>
                             </div>
                             <div id="sim_wager_grind_99_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_wg99_base"
-                                        value="0.05" step="0.01"></div>
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_wg99_base"
+                                        value="1.0" step="0.01"></div>
                             </div>
                             <div id="sim_fibonacci_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_fib_base"
-                                        value="0.001" step="0.0001"></div>
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_fib_base"
+                                        value="1.0" step="0.000001"></div>
                             </div>
                             <div id="sim_paroli_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_par_base"
-                                        value="0.0005" step="0.0001"></div>
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_par_base"
+                                        value="1.0" step="0.000001"></div>
                             </div>
                             <div id="sim_oscars_grind_config" class="sim-strat-panel" style="display:none;">
-                                <div class="form-group"><label>Base Bet %</label><input type="number" id="s_osc_base"
-                                        value="0.001" step="0.0001"></div>
+                                <div class="form-group"><label>Base Bet ($)</label><input type="number" id="s_osc_base"
+                                        value="1.0" step="0.000001"></div>
                             </div>
                             <div id="sim_basic_config" class="sim-strat-panel" style="display:none;">
                                 <div class="form-group"><label>Target</label><input type="number" id="s_basic_target"
@@ -347,8 +379,8 @@
                             </div>
                         </div>
 
-                        <div class="form-group"><label>Drawdown Cap %</label><input type="number" id="sim_atcap"
-                                value="-8.0"></div>
+                        <div class="form-group"><label>Drawdown Cap ($)</label><input type="number" id="sim_atcap"
+                                value="-100.0"></div>
                         <div class="form-group"><label>Min Bet Floor</label><input type="number" id="sim_floor"
                                 value="0.000001" step="any"></div>
 
@@ -536,8 +568,9 @@
                         <h4
                             style="color:var(--primary); text-transform:uppercase; font-size:0.8rem; letter-spacing:1px;">
                             DICE MODULE</h4>
-                        <div class="form-group"><label>Wager Amount</label><input type="number" id="dice_manual_bet"
-                                value="0.000001" step="any"></div>
+                        <div class="form-group"><label>Wager Amount ($) <span class="conv-val"></span></label><input
+                                type="number" id="dice_manual_bet" value="1.0" step="0.000001"
+                                oninput="updateConv(this)"></div>
                         <div style="display:flex; gap:1rem;">
                             <div class="form-group" style="flex:1;"><label>Target</label><input type="number"
                                     id="dice_manual_target" value="50.50"></div>
@@ -554,7 +587,81 @@
                     </div>
                 </div>
             </div>
-            <!-- More game modules can be added as grid-stack-items here -->
+            <!-- LIMBO MODULE -->
+            <div class="grid-stack-item" gs-x="4" gs-y="0" gs-w="4" gs-h="8">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h4
+                            style="color:var(--accent); text-transform:uppercase; font-size:0.8rem; letter-spacing:1px;">
+                            LIMBO MODULE</h4>
+                        <div class="form-group"><label>Wager Amount ($)</label><input type="number"
+                                id="limbo_manual_bet" value="1.0" step="0.000001"></div>
+                        <div class="form-group"><label>Target Multiplier</label><input type="number"
+                                id="limbo_manual_mult" value="2.00" step="0.01" min="1.01"></div>
+                        <button class="btn-start"
+                            style="width:100%; border-radius:10px; margin-top:1rem; background:linear-gradient(135deg, var(--accent), #6930c3);"
+                            onclick="playManualGame('limbo')">EXECUTE WAGER</button>
+                        <div id="limbo_manual_result" class="stat-value"
+                            style="margin-top:1.5rem; text-align:center; font-size:1.1rem; min-height:1.5em;"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- PLINKO MODULE -->
+            <div class="grid-stack-item" gs-x="8" gs-y="0" gs-w="4" gs-h="8">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h4
+                            style="color:var(--warning); text-transform:uppercase; font-size:0.8rem; letter-spacing:1px;">
+                            PLINKO MODULE</h4>
+                        <div class="form-group"><label>Wager Amount ($)</label><input type="number"
+                                id="plinko_manual_bet" value="1.0" step="0.000001"></div>
+                        <div style="display:flex; gap:1rem;">
+                            <div class="form-group" style="flex:1;"><label>Risk</label><select id="plinko_manual_risk">
+                                    <option value="low">Low</option>
+                                    <option value="medium" selected>Medium</option>
+                                    <option value="high">High</option>
+                                </select></div>
+                            <div class="form-group" style="flex:1;"><label>Rows</label><select id="plinko_manual_rows">
+                                    <option value="8">8</option>
+                                    <option value="10">10</option>
+                                    <option value="12" selected>12</option>
+                                    <option value="14">14</option>
+                                    <option value="16">16</option>
+                                </select></div>
+                        </div>
+                        <button class="btn-start"
+                            style="width:100%; border-radius:10px; margin-top:1rem; background:linear-gradient(135deg, var(--warning), #e67e22);"
+                            onclick="playManualGame('plinko')">EXECUTE WAGER</button>
+                        <div id="plinko_manual_result" class="stat-value"
+                            style="margin-top:1.5rem; text-align:center; font-size:1.1rem; min-height:1.5em;"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- KENO MODULE -->
+            <div class="grid-stack-item" gs-x="0" gs-y="8" gs-w="6" gs-h="8">
+                <div class="grid-stack-item-content">
+                    <div class="gs-drag-handle"></div>
+                    <div class="panel">
+                        <h4
+                            style="color:var(--danger); text-transform:uppercase; font-size:0.8rem; letter-spacing:1px;">
+                            KENO MODULE</h4>
+                        <div class="form-group"><label>Wager Amount ($)</label><input type="number" id="keno_manual_bet"
+                                value="1.0" step="0.000001"></div>
+                        <div class="form-group"><label>Pick Numbers (click grid)</label>
+                            <div id="keno-grid"
+                                style="display:grid; grid-template-columns:repeat(8, 1fr); gap:4px; margin-top:0.5rem;">
+                            </div>
+                        </div>
+                        <button class="btn-start"
+                            style="width:100%; border-radius:10px; margin-top:1rem; background:linear-gradient(135deg, var(--danger), #c0392b);"
+                            onclick="playManualGame('keno')">EXECUTE WAGER</button>
+                        <div id="keno_manual_result" class="stat-value"
+                            style="margin-top:1.5rem; text-align:center; font-size:1.1rem; min-height:1.5em;"></div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 

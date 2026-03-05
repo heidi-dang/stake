@@ -145,10 +145,16 @@ function startBot() {
             const el = document.getElementById(inputId);
             if (el) {
                 const val = parseFloat(el.value);
-                if (key === 'bg') data[strat + '_base_bet_pct'] = val;
-                else if (key === 'tp') data[strat + '_tp_pct'] = val;
-                else if (key === 'sl') data[strat + '_sl_pct'] = val;
-                else if (key === 'dl') data[strat + '_daily_loss_cap_pct'] = val;
+                if (key === 'bg') data[strat + '_base_bet_usd'] = val;
+                else if (key === 'tp') {
+                    if (strat === 'reverted_martingale') data['session_tp_usd'] = val;
+                    else data[strat + '_tp_usd'] = val;
+                }
+                else if (key === 'sl') data[strat + '_sl_usd'] = val;
+                else if (key === 'dl') {
+                    if (strat === 'reverted_martingale') data['daily_loss_cap_usd'] = val;
+                    else data[strat + '_daily_loss_cap_usd'] = val;
+                }
                 else if (key === 'ml') data[strat + '_mult_on_loss'] = val;
             }
         });
@@ -227,6 +233,35 @@ function setWallet(currency) {
             const curEl = document.getElementById('currency');
             if (curEl) curEl.textContent = currency.toUpperCase();
         }
+    });
+}
+
+function sendAiMessage() {
+    const input = document.getElementById('ai-input');
+    const msg = input.value.trim();
+    if (!msg) return;
+
+    const chat = document.getElementById('ai-chat');
+    chat.innerHTML += `<div class="ai-msg ai-msg-user"><b>You:</b> ${msg}</div>`;
+    chat.scrollTop = chat.scrollHeight;
+    input.value = '';
+
+    fetch('/ai/chat', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': localStorage.getItem('gork_token')
+        },
+        body: JSON.stringify({ message: msg })
+    }).then(r => r.json()).then(d => {
+        if (d.error) {
+            chat.innerHTML += `<div class="ai-msg ai-msg-bot" style="color:var(--danger);"><b>Error:</b> ${d.error}</div>`;
+        } else {
+            chat.innerHTML += `<div class="ai-msg ai-msg-bot"><b>Gemini:</b> ${d.reply}</div>`;
+        }
+        chat.scrollTop = chat.scrollHeight;
+    }).catch(e => {
+        chat.innerHTML += `<div class="ai-msg ai-msg-bot" style="color:var(--danger);"><b>System Error:</b> Could not reach AI backend.</div>`;
     });
 }
 

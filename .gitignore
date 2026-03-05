@@ -1,0 +1,8 @@
+.env
+__pycache__/
+core/__pycache__/
+stake_api/__pycache__/
+venv/
+_doctor/
+*.pyc
+gork_data.db

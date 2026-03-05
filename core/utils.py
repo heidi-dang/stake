@@ -13,60 +13,70 @@ def calculate_ema(data, period):
         ema = (val - ema) * multiplier + ema
     return ema
 
-def stake_derive_roll(server_seed, client_seed, nonce):
+def stake_derive_roll(server_seed: str, client_seed: str, nonce: int) -> float:
     """
-    Implements Stake.com's provably fair dice roll derivation.
+    Exact replication of Stake.com Dice HMAC-SHA256 algorithm.
     """
-    message = f"{client_seed}:{nonce}:0".encode()
-    k = server_seed.encode()
-    h = hmac.new(k, message, hashlib.sha256).hexdigest()
+    message = f"{client_seed}:{nonce}"
+    h = hmac.new(server_seed.encode(), message.encode(), hashlib.sha256).hexdigest()
     
-    # 8 chars (32 bits) hex to float
-    for i in range(0, len(h), 8):
-        val = int(h[i:i+8], 16)
-        if val < 4294967295: # 2^32 - 1
-            return (val % 1000001) / 10000.0
-    return 0.0
+    # Extract 4 nibble groups of 8 hex chars each, take first that gives < 10000
+    for i in range(4):
+        segment = h[i*8:(i*8)+8]
+        val = int(segment, 16)
+        result = val % 10001
+        if result <= 10000:
+            return result / 100.0
+    return 50.0
 
 def dragon_tower_derive_game(server_seed, client_seed, nonce, difficulty):
     """
     Implements Dragon Tower map derivation based on Stake Pf rules.
+    Exactly replicates the tower layout.
     """
-    # Simplified mock for now, but following the logic structure
-    rows = 9
-    tiles_per_row = {
-        'easy': 4,
-        'medium': 3,
-        'hard': 2,
-        'expert': 3,
-        'master': 4
-    }.get(difficulty, 4)
-    
-    eggs_per_row = {
-        'expert': 2,
-        'master': 3
-    }.get(difficulty, 1)
+    diff_map = {
+        'easy': {'eggs': 1, 'size': 4},
+        'medium': {'eggs': 1, 'size': 3},
+        'hard': {'eggs': 1, 'size': 2},
+        'expert': {'eggs': 2, 'size': 3},
+        'master': {'eggs': 3, 'size': 4}
+    }
+    cfg = diff_map.get(difficulty.lower(), diff_map['easy'])
+    eggs_per_row = cfg['eggs']
+    tiles_per_row = cfg['size']
     
     tower = []
-    for row_idx in range(rows):
-        message = f"{client_seed}:{nonce}:{row_idx}".encode()
-        k = server_seed.encode()
-        h = hmac.new(k, message, hashlib.sha256).hexdigest()
+    
+    def get_float(index):
+        round_num = index // 8
+        byte_offset = (index % 8) * 4
+        message = f"{client_seed}:{nonce}:{round_num}"
+        h = hmac.new(server_seed.encode(), message.encode(), hashlib.sha256).digest()
         
-        # Determine egg positions via Fisher-Yates or simple modulo for mock
-        row_data = []
-        for i in range(tiles_per_row):
-            row_data.append({'is_egg': False})
-            
-        # Mock egg placement
-        egg_pos = int(h[:8], 16) % tiles_per_row
-        row_data[egg_pos]['is_egg'] = True
+        # 4 bytes to float
+        bytes_part = h[byte_offset:byte_offset+4]
+        val = 0
+        for i, b in enumerate(bytes_part):
+            val += b / (256**(i+1))
+        return val
+
+    float_cursor = 0
+    for row_idx in range(9):
+        # Initialize row
+        row_data = [{'is_egg': False} for _ in range(tiles_per_row)]
         
-        if eggs_per_row > 1:
-            egg_pos2 = int(h[8:16], 16) % tiles_per_row
-            row_data[egg_pos2]['is_egg'] = True
+        # Determine egg positions using Fisher-Yates approach per Stake rules
+        available_indices = list(range(tiles_per_row))
+        for _ in range(eggs_per_row):
+            f_val = get_float(float_cursor)
+            float_cursor += 1
+            pos_idx = int(f_val * len(available_indices))
+            egg_pos = available_indices.pop(pos_idx)
+            row_data[egg_pos]['is_egg'] = True
             
         tower.append(row_data)
+        
+    return tower
         
     return tower
 

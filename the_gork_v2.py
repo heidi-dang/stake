@@ -13,6 +13,11 @@ import sqlite3
 import hashlib
 import hmac
 import jwt
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
+
 from functools import wraps
 from datetime import datetime
 from flask import Flask, jsonify, request, render_template, send_from_directory
@@ -23,6 +28,10 @@ import requests
 from core.utils import stake_derive_roll, dragon_tower_derive_game, generate_new_seeds, calculate_ema
 from core.engine import GorkEngine
 from core.simulator import run_simulation_internal
+from core.schemas import (GorkConfig, StartBotRequest, LoginRequest, SaveStrategyRequest, 
+                          DicePredictRequest, DragonPredictRequest, ManualBetRequest,
+                          SetWalletRequest, SetGeminiKeyRequest)
+from pydantic import ValidationError
 
 DB_PATH = 'gork_data.db'
 CUSTOM_STRAT_PATH = 'custom_strategy.py'
@@ -56,6 +65,8 @@ except ImportError:
     api_available = False
 
 API_TOKEN = os.getenv('STAKE_API_TOKEN', '')
+GEMINI_API_KEY = os.getenv('GEMINI_API_KEY', '')
+
 if not API_TOKEN:
     with sqlite3.connect(DB_PATH) as conn:
         res = conn.execute("SELECT value FROM settings WHERE key='api_token'").fetchone()
@@ -87,23 +98,25 @@ def token_required(f):
         return f(*args, **kwargs)
     return decorated
 
-DEFAULT_CONFIG = {
-    'base_bet_pct': 0.0012,
-    'die_last_base_bet_pct': 0.005, 'die_last_tp_pct': 8.0, 'die_last_sl_pct': -3.5, 'die_last_daily_loss_cap_pct': -12.0,
-    'vanish_base_bet_pct': 0.0015, 'vanish_tp_pct': 3.5, 'vanish_sl_pct': -2.0, 'vanish_daily_loss_cap_pct': -1.5,
-    'eternal_base_bet_pct': 0.0012, 'eternal_tp_pct': 3.0, 'eternal_sl_pct': -1.4, 'eternal_daily_loss_cap_pct': -2.5,
-    'session_tp_pct': 3.0, 'session_sl_pct': -1.4, 'daily_loss_cap_pct': -1.8,
-    'weekly_loss_cap_pct': -4.0, 'all_time_drawdown_cap_pct': -8.0,
+# Validate default config
+_raw_default = {
+    'base_bet_usd': 1.0,
+    'die_last_base_bet_usd': 0.5, 'die_last_tp_usd': 10.0, 'die_last_sl_usd': -5.0, 'die_last_daily_loss_cap_usd': -20.0,
+    'vanish_base_bet_usd': 0.5, 'vanish_tp_usd': 5.0, 'vanish_sl_usd': -3.0, 'vanish_daily_loss_cap_usd': -15.0,
+    'eternal_base_bet_usd': 0.25, 'eternal_tp_usd': 5.0, 'eternal_sl_usd': -2.0, 'eternal_daily_loss_cap_usd': -10.0,
+    'session_tp_usd': 10.0, 'session_sl_usd': -5.0, 'daily_loss_cap_usd': -10.0,
+    'weekly_loss_cap_usd': -50.0, 'all_time_drawdown_cap_usd': -100.0,
     'min_bet_floor': 0.000001, 'enable_seed_rotation': True, 'enable_daily_lock': True,
     'active_currency': 'btc', 'gemini_api_key': '',
-    'basic_bet_amount': 0.000001, 'basic_on_win': 'reset', 'basic_win_mult': 1.0, 'basic_on_loss': 'multiply', 'basic_loss_mult': 2.0, 'basic_target': 50.50, 'basic_condition': 'over',
-    'rm_base_bet_pct': 0.0012, 'rm_tp_pct': 3.0, 'rm_sl_pct': -8.0, 'rm_daily_loss_cap_pct': -10.0,
-    'wg99_base_bet_pct': 0.05, 'wg99_tp_pct': 1.0, 'wg99_sl_pct': -15.0, 'wg99_daily_loss_cap_pct': -20.0,
-    'fib_base_bet_pct': 0.001, 'fib_tp_pct': 2.0, 'fib_sl_pct': -5.0, 'fib_daily_loss_cap_pct': -10.0, 'fib_win_chance': 49.50,
-    'par_base_bet_pct': 0.0005, 'par_tp_pct': 5.0, 'par_sl_pct': -3.0, 'par_daily_loss_cap_pct': -8.0, 'par_win_chance': 49.50, 'par_streak_target': 3,
-    'osc_base_bet_pct': 0.001, 'osc_tp_pct': 2.5, 'osc_sl_pct': -4.0, 'osc_daily_loss_cap_pct': -8.0, 'osc_win_chance': 49.50,
+    'basic_bet_amount': 1.0, 'basic_on_win': 'reset', 'basic_win_mult': 1.0, 'basic_on_loss': 'multiply', 'basic_loss_mult': 2.0, 'basic_target': 50.50, 'basic_condition': 'over',
+    'rm_base_bet_usd': 0.5, 'rm_tp_usd': 5.0, 'rm_sl_usd': -10.0, 'rm_daily_loss_cap_usd': -20.0,
+    'wg99_base_bet_usd': 1.0, 'wg99_tp_usd': 2.0, 'wg99_sl_usd': -10.0, 'wg99_daily_loss_cap_usd': -30.0,
+    'fib_base_bet_usd': 0.5, 'fib_tp_usd': 5.0, 'fib_sl_usd': -10.0, 'fib_daily_loss_cap_usd': -20.0, 'fib_win_chance': 49.50,
+    'par_base_bet_usd': 0.25, 'par_tp_usd': 10.0, 'par_sl_usd': -5.0, 'par_daily_loss_cap_usd': -15.0, 'par_win_chance': 49.50, 'par_streak_target': 3,
+    'osc_base_bet_usd': 0.5, 'osc_tp_usd': 5.0, 'osc_sl_usd': -10.0, 'osc_daily_loss_cap_usd': -20.0, 'osc_win_chance': 49.50,
     'dc_difficulty': 'easy', 'dc_target_col': 0
 }
+DEFAULT_CONFIG = GorkConfig(**_raw_default).dict()
 
 state = {
     'config': DEFAULT_CONFIG.copy(), 'strategy': 'the_gork', 'balance': {'available': 1000.0, 'currency': 'btc'},
@@ -177,8 +190,27 @@ def betting_loop():
             
         time.sleep(1.0)
 
-# Start betting thread
+def update_prices_thread():
+    while True:
+        try:
+            # Mock or real price fetch
+            symbols = ["BTCUSDT", "LTCUSDT", "ETHUSDT"]
+            price_map = {}
+            for s in symbols:
+                r = requests.get(f"https://api.binance.com/api/v3/ticker/price?symbol={s}", timeout=5)
+                if r.status_code == 200:
+                    price_map[s.replace("USDT", "").lower()] = float(r.json()['price'])
+            
+            with state_lock:
+                for coin, price in price_map.items():
+                    state['prices'][coin] = price
+        except Exception as e:
+            logger.error(f"Price update failed: {e}")
+        time.sleep(60)
+
+# Start threads
 threading.Thread(target=betting_loop, daemon=True).start()
+threading.Thread(target=update_prices_thread, daemon=True).start()
 
 # ROUTES
 @app.route('/')
@@ -187,11 +219,17 @@ def dashboard():
 
 @app.route('/login', methods=['POST'])
 def login():
-    pw = request.json.get('password')
-    if pw == 'gork2026':
-        token = jwt.encode({'user': 'admin', 'exp': time.time() + 86400}, app.config['SECRET_KEY'], algorithm="HS256")
-        return jsonify({'success': True, 'token': token})
-    return jsonify({'success': False}), 401
+    try:
+        req = LoginRequest(**request.json)
+        valid_user = os.getenv('GORK_USERNAME', 'admin')
+        valid_pass = os.getenv('GORK_PASSWORD', 'gork2026')
+        
+        if req.username == valid_user and req.password == valid_pass:
+            token = jwt.encode({'user': valid_user, 'exp': time.time() + 86400}, app.config['SECRET_KEY'], algorithm="HS256")
+            return jsonify({'success': True, 'token': token})
+        return jsonify({'success': False, 'error': 'Invalid credentials'}), 401
+    except ValidationError as e:
+        return jsonify({'success': False, 'error': e.errors()}), 400
 
 @app.route('/status')
 def get_status():
@@ -200,13 +238,22 @@ def get_status():
 @app.route('/start', methods=['POST'])
 @token_required
 def start_bot():
-    data = request.json
-    with state_lock:
-        state['config'].update(data)
-        state['strategy'] = data.get('strategy', state['strategy'])
-        state['is_running'] = True
-    log(f"Bot STARTED: {state['strategy'].upper()}")
-    return jsonify({'success': True})
+    try:
+        req = StartBotRequest(**request.json)
+        with state_lock:
+            if req.config:
+                # Update existing config with new values, validating the result
+                current_cfg = state['config'].copy()
+                current_cfg.update(req.config)
+                validated_cfg = GorkConfig(**current_cfg)
+                state['config'] = validated_cfg.dict()
+            
+            state['strategy'] = req.strategy
+            state['is_running'] = True
+        log(f"Bot STARTED: {state['strategy'].upper()}")
+        return jsonify({'success': True})
+    except ValidationError as e:
+        return jsonify({'success': False, 'error': e.errors()}), 400
 
 @app.route('/stop', methods=['POST'])
 @token_required
@@ -238,6 +285,14 @@ def get_prices_data():
     with state_lock:
         return jsonify(state['prices'])
 
+@app.route('/api/convert', methods=['GET'])
+def convert_usd():
+    usd = request.args.get('usd', 1.0, type=float)
+    currency = state['balance']['currency'].lower()
+    price = state['prices'].get(currency, 1.0)
+    coin_amount = usd / price if price > 0 else 0
+    return jsonify({'usd': usd, 'currency': currency, 'amount': coin_amount})
+
 # Settings & Wallet Routes
 @app.route('/settings/vip')
 def get_vip():
@@ -257,18 +312,24 @@ def get_wallets():
 @app.route('/settings/set_wallet', methods=['POST'])
 @token_required
 def set_wallet():
-    curr = request.json.get('currency', 'btc')
-    with state_lock:
-        state['balance']['currency'] = curr
-    return jsonify({'success': True})
+    try:
+        req = SetWalletRequest(**request.json)
+        with state_lock:
+            state['balance']['currency'] = req.currency
+        return jsonify({'success': True})
+    except ValidationError as e:
+        return jsonify({'success': False, 'error': e.errors()}), 400
 
 @app.route('/settings/gemini_key', methods=['POST'])
 @token_required
 def set_gemini_key():
-    key = request.json.get('key')
-    with state_lock:
-        state['config']['gemini_api_key'] = key
-    return jsonify({'success': True, 'message': 'API Key updated locally.'})
+    try:
+        req = SetGeminiKeyRequest(**request.json)
+        with state_lock:
+            state['config']['gemini_api_key'] = req.key
+        return jsonify({'success': True, 'message': 'API Key updated locally.'})
+    except ValidationError as e:
+        return jsonify({'success': False, 'error': e.errors()}), 400
 
 # Strategy Management
 @app.route('/strategies', methods=['GET'])
@@ -281,12 +342,18 @@ def list_strategies():
 @app.route('/strategies', methods=['POST'])
 @token_required
 def save_strategy():
-    d = request.json or {}
-    name, strat, cfg = d.get('name','').strip(), d.get('strategy',''), d.get('config', {})
-    if not name or not strat: return jsonify({'error':'Missing name or strategy'}), 400
-    with sqlite3.connect(DB_PATH) as conn:
-        conn.execute("INSERT OR REPLACE INTO saved_strategies (name, strategy, config) VALUES (?,?,?)", (name, strat, json.dumps(cfg)))
-    return jsonify({'success': True})
+    try:
+        req = SaveStrategyRequest(**(request.json or {}))
+        # Validate the config inside the strategy as well
+        if req.config:
+            GorkConfig(**req.config)
+            
+        with sqlite3.connect(DB_PATH) as conn:
+            conn.execute("INSERT OR REPLACE INTO saved_strategies (name, strategy, config) VALUES (?,?,?)", 
+                         (req.name, req.strategy, json.dumps(req.config)))
+        return jsonify({'success': True})
+    except ValidationError as e:
+        return jsonify({'success': False, 'error': e.errors()}), 400
 
 @app.route('/strategies/<int:id>', methods=['GET'])
 @token_required
@@ -330,41 +397,186 @@ def get_params():
 @app.route('/api/dice/predict', methods=['POST'])
 @token_required
 def dice_predict():
-    data = request.json
-    roll = stake_derive_roll(data['server_seed_hash'], data['client_seed'], data['nonce'])
-    return jsonify({'roll': roll})
+    try:
+        req = DicePredictRequest(**request.json)
+        roll = stake_derive_roll(req.server_seed_hash, req.client_seed, req.nonce)
+        return jsonify({'roll': roll})
+    except ValidationError as e:
+        return jsonify({'success': False, 'error': e.errors()}), 400
 
 @app.route('/api/dragon_tower/predict', methods=['POST'])
 def dragon_predict():
-    data = request.json
-    tower = dragon_tower_derive_game(data.get('server_seed', state['server_seed_hash']), 
-                                    data.get('client_seed', state['client_seed']), 
-                                    int(data.get('nonce', state['nonce'])), 
-                                    data.get('difficulty', 'easy'))
-    return jsonify({'success': True, 'tower': tower})
+    try:
+        req = DragonPredictRequest(**request.json)
+        tower = dragon_tower_derive_game(
+            req.server_seed or state['server_seed_hash'], 
+            req.client_seed or state['client_seed'], 
+            req.nonce if req.nonce is not None else int(state['nonce']), 
+            req.difficulty
+        )
+        return jsonify({'success': True, 'tower': tower})
+    except ValidationError as e:
+        return jsonify({'success': False, 'error': e.errors()}), 400
 
 @app.route('/api/manual_bet', methods=['POST'])
+@token_required
 def manual_bet():
-    data = request.json
-    # Simulate a manual bet
-    amount = data.get('amount', 0.000001)
-    game = data.get('game', 'dice')
-    with state_lock:
-        state['balance']['available'] -= amount
-        # Simplified win logic
-        won = random.random() > 0.5
-        payout = amount * 1.98 if won else 0
-        state['balance']['available'] += payout
-    return jsonify({'success': True, 'amount': amount, 'payout': payout, 'multiplier': 1.98 if won else 0})
+    try:
+        req = ManualBetRequest(**request.json)
+        amount = req.amount
+        game = req.game
+        
+        # Real Stake API logic if available, else mock
+        if stake_client:
+            try:
+                active_curr = state['config'].get('active_currency', 'btc').lower()
+                if game == 'dice':
+                    res = stake_client.dice_roll(amount, "above", 50.50, active_curr)
+                elif game == 'limbo':
+                    res = stake_client.limbo_roll(amount, 2.0, active_curr)
+                elif game == 'plinko':
+                    res = stake_client.plinko_roll(amount, "medium", 12, active_curr)
+                elif game == 'keno':
+                    # Mock numbers for keno manual bet if not provided
+                    nums = request.json.get('numbers', [1, 2, 3, 4, 5])
+                    res = stake_client.keno_roll(amount, nums, active_curr)
+                else:
+                    return jsonify({'error': f'Game {game} not supported for API betting.'}), 400
+
+                if 'errors' in res:
+                    return jsonify({'error': res['errors'][0]['message']}), 400
+                
+                # Standardize response (simplified)
+                bet_data = res.get('data', {}).get(f"{game}Bet", {})
+                return jsonify({
+                    'success': True,
+                    'amount': amount,
+                    'payout': bet_data.get('payout', 0),
+                    'multiplier': bet_data.get('payoutMultiplier', 0)
+                })
+            except Exception as e:
+                log(f"API Bet Error: {e}")
+                # Fallback to mock on API fail? No, better to report error.
+                return jsonify({'error': str(e)}), 500
+
+        # Mock Logic
+        with state_lock:
+            state['balance']['available'] -= amount
+            won = random.random() > 0.52 # House edge
+            payout = amount * 1.98 if won else 0
+            state['balance']['available'] += payout
+        return jsonify({'success': True, 'amount': amount, 'payout': payout, 'multiplier': 1.98 if won else 0})
+    except ValidationError as e:
+        return jsonify({'success': False, 'error': e.errors()}), 400
 
 @app.route('/ai/chat', methods=['POST'])
 @token_required
 def ai_chat():
     data = request.json
-    msg = data.get('message', '').lower()
-    reply = "AI Controller online. Systems functional."
-    if "status" in msg: reply = f"Current balance: {state['balance']['available']:.8f} {state['balance']['currency'].upper()}. Bot is {'RUNNING' if state['is_running'] else 'PAUSED'}."
-    return jsonify({'reply': reply})
+    message = data.get('message', '')
+    if not message:
+        return jsonify({'error': 'No message provided'}), 400
+    
+    api_key = state['config'].get('gemini_api_key') or GEMINI_API_KEY
+    if not api_key:
+        return jsonify({'error': 'Gemini API Key not configured.'}), 400
+
+    # Build Context
+    with state_lock:
+        current_status = {
+            'is_running': state['is_running'],
+            'strategy': state['strategy'],
+            'balance': state['balance'],
+            'total_bets': state['total_bets'],
+            'total_wagered': state['total_wagered'],
+            'peak_balance': state['peak_balance']
+        }
+    
+    system_prompt = f"""You are Gork Controller AI. Help manage the Stake bot.
+Current State: {json.dumps(current_status)}
+
+Available Commands:
+- [START]: Start the betting loop.
+- [STOP]: Stop the betting loop.
+- [SET_STRATEGY name]: Change strategy (the_gork, ema_cross, die_last, vanish_in_volume, eternal_volume, custom, basic).
+- [SIMULATE strategy bets]: Run a benchmark simulation. Strategy should be one of the above. Bets should be a number (e.g. 5000).
+- [WRITE_STRATEGY]: Start writing a new custom Python strategy. 
+  Follow this exactly: [WRITE_STRATEGY] your_python_code [END_STRATEGY]
+  The code MUST define a function `calculate_bet(balance)`.
+  The code must end with `result = calculate_bet(balance)`.
+
+Rules:
+1. If the user wants to take an action, include the exact [COMMAND] in your reply.
+2. Be helpful, concise, and professional.
+3. If asked for status, summarize the current metrics.
+"""
+    
+    url = f"https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key={api_key}"
+    payload = {
+        "contents": [
+            {"role": "user", "parts": [{"text": system_prompt}]},
+            {"role": "user", "parts": [{"text": message}]}
+        ]
+    }
+    
+    try:
+        r = requests.post(url, json=payload, timeout=12)
+        r_json = r.json()
+        
+        if 'candidates' not in r_json:
+            error_msg = r_json.get('error', {}).get('message', 'Unknown Gemini Error')
+            if 'SAFETY' in str(r_json): error_msg = "Content filtered by Safety Settings."
+            return jsonify({'error': f"Gemini API Error: {error_msg}"}), 500
+            
+        reply = r_json['candidates'][0]['content']['parts'][0]['text']
+        
+        # Dispatcher logic
+        if '[START]' in reply:
+            with state_lock: state['is_running'] = True
+            log("AI Command: START")
+        if '[STOP]' in reply:
+            with state_lock: state['is_running'] = False
+            log("AI Command: STOP")
+        if '[SET_STRATEGY' in reply:
+            import re
+            m = re.search(r'\[SET_STRATEGY\s+(\w+)\]', reply)
+            if m:
+                new_strat = m.group(1)
+                valid = ['the_gork', 'ema_cross', 'die_last', 'vanish_in_volume', 'eternal_volume', 'custom', 'basic']
+                if new_strat in valid:
+                    with state_lock: state['strategy'] = new_strat
+                    log(f"AI: SET_STRATEGY -> {new_strat}")
+
+        if '[SIMULATE]' in reply:
+            import re
+            m = re.search(r'\[SIMULATE\s+(\w+)\s+(\d+)\]', reply)
+            if m:
+                sim_strat = m.group(1)
+                sim_bets = int(m.group(2))
+                log(f"AI Command: SIMULATE {sim_strat} for {sim_bets} bets")
+                sim_data = {
+                    'strategy': sim_strat,
+                    'bets_to_simulate': sim_bets,
+                    'starting_balance': state['balance']['available'],
+                    'all_time_drawdown_cap_usd': state['config'].get('all_time_drawdown_cap_usd', -100.0),
+                    'min_bet_floor': state['config'].get('min_bet_floor', 0.000001)
+                }
+                threading.Thread(target=run_simulation_internal, args=(sim_data, GorkEngine), daemon=True).start()
+                reply += "\n\n(System: Benchmark started in background.)"
+
+        if '[WRITE_STRATEGY]' in reply:
+            import re
+            m = re.search(r'\[WRITE_STRATEGY\](.*?)\[END_STRATEGY\]', reply, re.DOTALL)
+            if m:
+                new_code = m.group(1).strip()
+                with sqlite3.connect(DB_PATH) as conn:
+                    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('custom_strategy', ?)", (new_code,))
+                log("AI Command: WRITE_STRATEGY -> Database updated")
+                reply += "\n\n(System: Custom strategy updated in Strategy Editor.)"
+
+        return jsonify({'reply': reply})
+    except Exception as e:
+        return jsonify({'error': f"Failed to reach Gemini: {str(e)}"}), 500
 
 
 if __name__ == '__main__':
