@@ -1,7 +1,7 @@
 // Main dashboard UI logic
 const gridOptions = {
-    cellHeight: 80,
-    margin: 10,
+    cellHeight: 64,
+    margin: 8,
     minRow: 1,
     float: true,
     animate: true,

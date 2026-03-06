@@ -1,0 +1,107 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Gork Terminal</title>
+  <style>body{font-family: Arial, Helvetica, sans-serif; padding:16px} textarea{width:100%;height:240px} #out{white-space:pre-wrap;background:#f7f7f7;padding:8px;border:1px solid #ddd;margin-top:8px}</style>
+</head>
+<body>
+  <h2>Gork Web Terminal</h2>
+  <p>Provide your `Authorization` token when prompted to run protected commands.</p>
+  <div>
+    <div>
+      <label><input type="radio" name="login_method" value="local" checked> Local (app) username/password</label>
+      <label><input type="radio" name="login_method" value="api_token"> API Token</label>
+      <label><input type="radio" name="login_method" value="stake_creds"> Stake.com username/password</label>
+    </div>
+    <div id="local_fields">
+      <label>Username: <input id="username" value="admin"></label>
+      <label>Password: <input id="password" type="password" value="admin123"></label>
+    </div>
+    <div id="token_fields" style="display:none">
+      <label>API Token: <input id="api_token" placeholder="sk_live_..." style="width:320px"></label>
+    </div>
+    <div id="stake_fields" style="display:none">
+      <label>Stake Username: <input id="stake_username"></label>
+      <label>Stake Password: <input id="stake_password" type="password"></label>
+    </div>
+    <button id="btn-login">Login</button>
+  </div>
+  <button id="btn-get">Load Custom Strategy</button>
+  <button id="btn-run">Run Strategy</button>
+  <button id="btn-show">Show State</button>
+  <button id="btn-save">Save Strategy</button>
+  <div style="margin-top:8px">
+    <textarea id="code" placeholder="Strategy code will appear here"></textarea>
+  </div>
+  <div id="out"></div>
+
+document.getElementById('btn-get').onclick = async ()=>{
+document.getElementById('btn-run').onclick = async ()=>{
+document.getElementById('btn-show').onclick = async ()=>{
+document.getElementById('btn-save').onclick = async ()=>{
+<script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+<script>
+let token = null;
+function setToken(t){ token = t }
+
+document.querySelectorAll('input[name="login_method"]').forEach(el=>{
+  el.addEventListener('change', ()=>{
+    const v = document.querySelector('input[name="login_method"]:checked').value;
+    document.getElementById('local_fields').style.display = v==='local' ? '' : 'none';
+    document.getElementById('token_fields').style.display = v==='api_token' ? '' : 'none';
+    document.getElementById('stake_fields').style.display = v==='stake_creds' ? '' : 'none';
+  })
+})
+
+document.getElementById('btn-login').onclick = async ()=>{
+  const method = document.querySelector('input[name="login_method"]:checked').value;
+  let payload = {};
+  if(method === 'local'){
+    payload = {username: document.getElementById('username').value, password: document.getElementById('password').value};
+  } else if(method === 'api_token'){
+    payload = {api_token: document.getElementById('api_token').value};
+  } else if(method === 'stake_creds'){
+    payload = {stake_username: document.getElementById('stake_username').value, stake_password: document.getElementById('stake_password').value};
+  }
+
+  const r = await fetch('/login', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload)});
+  const j = await r.json();
+  if(j.token){ setToken(j.token); alert('Token set'); connectSocket(); }
+  else alert('Login failed: '+ JSON.stringify(j));
+}
+
+async function connectSocket(){
+  if(!token) return;
+  const socket = io({ auth: { token: token } });
+  socket.on('connect', ()=>{
+    document.getElementById('out').innerText = 'Connected to terminal.';
+  });
+  socket.on('output', (m)=>{
+    const el = document.getElementById('out');
+    el.innerText = (m.msg || JSON.stringify(m, null,2)) + '\n' + el.innerText;
+  });
+  socket.on('disconnect', ()=>{
+    document.getElementById('out').innerText = 'Disconnected.';
+  });
+
+  document.getElementById('btn-get').onclick = ()=> socket.emit('cmd', {cmd:'get_code'});
+  document.getElementById('btn-run').onclick = ()=> socket.emit('cmd', {cmd:'run'});
+  document.getElementById('btn-show').onclick = ()=> socket.emit('cmd', {cmd:'show'});
+  document.getElementById('btn-save').onclick = ()=> {
+    const code = document.getElementById('code').value;
+    socket.emit('cmd', {cmd:'load', code});
+  };
+
+  // also allow sending arbitrary code to exec in sandbox
+  const form = document.createElement('div');
+  const btnExec = document.createElement('button'); btnExec.innerText='Exec (sandbox)';
+  btnExec.onclick = ()=> socket.emit('cmd', {cmd:'exec', code: document.getElementById('code').value});
+  form.appendChild(btnExec);
+  document.body.insertBefore(form, document.getElementById('out'));
+}
+
+connectSocket();
+</script>
+</body>
+</html>

@@ -32,6 +32,10 @@ from core.schemas import (GorkConfig, StartBotRequest, LoginRequest, SaveStrateg
                           DicePredictRequest, DragonPredictRequest, ManualBetRequest,
                           SetWalletRequest, SetGeminiKeyRequest)
 from pydantic import ValidationError
+from flask_socketio import SocketIO, emit
+import time as _time
+from collections import defaultdict, deque
+from threading import Lock as _ThreadLock
 
 DB_PATH = 'gork_data.db'
 CUSTOM_STRAT_PATH = 'custom_strategy.py'
@@ -81,8 +85,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s | %(levelname)s | %(
 logger = logging.getLogger("TheGork")
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'gork_super_secret_jwt_key_2026'
-state_lock = Lock()
+# Load secret key from environment variable for security
+app.config['SECRET_KEY'] = os.getenv('GORK_JWT_SECRET', 'change_this_to_a_secure_random_string_in_production')
+from gork_state import state, DEFAULT_CONFIG, state_lock
 
 def token_required(f):
     @wraps(f)
@@ -98,38 +103,34 @@ def token_required(f):
         return f(*args, **kwargs)
     return decorated
 
-# Validate default config
-_raw_default = {
-    'base_bet_usd': 1.0,
-    'die_last_base_bet_usd': 0.5, 'die_last_tp_usd': 10.0, 'die_last_sl_usd': -5.0, 'die_last_daily_loss_cap_usd': -20.0,
-    'vanish_base_bet_usd': 0.5, 'vanish_tp_usd': 5.0, 'vanish_sl_usd': -3.0, 'vanish_daily_loss_cap_usd': -15.0,
-    'eternal_base_bet_usd': 0.25, 'eternal_tp_usd': 5.0, 'eternal_sl_usd': -2.0, 'eternal_daily_loss_cap_usd': -10.0,
-    'session_tp_usd': 10.0, 'session_sl_usd': -5.0, 'daily_loss_cap_usd': -10.0,
-    'weekly_loss_cap_usd': -50.0, 'all_time_drawdown_cap_usd': -100.0,
-    'min_bet_floor': 0.000001, 'enable_seed_rotation': True, 'enable_daily_lock': True,
-    'active_currency': 'btc', 'gemini_api_key': '',
-    'basic_bet_amount': 1.0, 'basic_on_win': 'reset', 'basic_win_mult': 1.0, 'basic_on_loss': 'multiply', 'basic_loss_mult': 2.0, 'basic_target': 50.50, 'basic_condition': 'over',
-    'rm_base_bet_usd': 0.5, 'rm_tp_usd': 5.0, 'rm_sl_usd': -10.0, 'rm_daily_loss_cap_usd': -20.0,
-    'wg99_base_bet_usd': 1.0, 'wg99_tp_usd': 2.0, 'wg99_sl_usd': -10.0, 'wg99_daily_loss_cap_usd': -30.0,
-    'fib_base_bet_usd': 0.5, 'fib_tp_usd': 5.0, 'fib_sl_usd': -10.0, 'fib_daily_loss_cap_usd': -20.0, 'fib_win_chance': 49.50,
-    'par_base_bet_usd': 0.25, 'par_tp_usd': 10.0, 'par_sl_usd': -5.0, 'par_daily_loss_cap_usd': -15.0, 'par_win_chance': 49.50, 'par_streak_target': 3,
-    'osc_base_bet_usd': 0.5, 'osc_tp_usd': 5.0, 'osc_sl_usd': -10.0, 'osc_daily_loss_cap_usd': -20.0, 'osc_win_chance': 49.50,
-    'dc_difficulty': 'easy', 'dc_target_col': 0
-}
-DEFAULT_CONFIG = GorkConfig(**_raw_default).dict()
-
-state = {
-    'config': DEFAULT_CONFIG.copy(), 'strategy': 'the_gork', 'balance': {'available': 1000.0, 'currency': 'btc'},
-    'is_running': False, 'current_bet': 0.000001, 'daily_start_balance': 1000.0, 'daily_start_time': time.time(),
-    'peak_balance': 1000.0, 'recent_outcomes': [], 'current_win_streak': 0, 'current_lose_streak': 0,
-    'total_bets': 0, 'total_wagered': 0.0, 'logs': [], 'roll_history': [],
-    'prices': {'btc': 100000.0, 'ltc': 100.0, 'eth': 2500.0},
-    'server_seed_hash': hashlib.sha256(os.urandom(32)).hexdigest(),
-    'client_seed': f"gork-{random.randint(1000,9999)}", 'nonce': 0
-}
+# State is now maintained in gork_state.py
 
 # Engine Instance
 engine = GorkEngine(state)
+from strategy_terminal import StrategyTerminal
+# Terminal instance wired to live state
+terminal = StrategyTerminal(CUSTOM_STRAT_PATH, state=state)
+
+# SocketIO for live terminal
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Simple rate limiter per-socket id (requests per window)
+RATE_LIMIT_COUNT = 8
+RATE_LIMIT_WINDOW = 10.0  # seconds
+_rate_map = defaultdict(lambda: deque())
+_rate_lock = _ThreadLock()
+
+def check_rate_limit(key):
+    now = _time.time()
+    with _rate_lock:
+        dq = _rate_map[key]
+        # drop old
+        while dq and dq[0] < now - RATE_LIMIT_WINDOW:
+            dq.popleft()
+        if len(dq) >= RATE_LIMIT_COUNT:
+            return False
+        dq.append(now)
+        return True
 
 def log(msg):
     ts = datetime.now().strftime('%H:%M:%S')
@@ -215,11 +216,59 @@ def dashboard():
 
 @app.route('/login', methods=['POST'])
 def login():
+    data = request.json or {}
+    # Support three login methods:
+    # 1) local username/password (default)
+    # 2) api_token: provide Stake API token to use for API calls
+    # 3) stake_username + stake_password: attempt to authenticate via stake_api wrapper (if available)
     try:
-        req = LoginRequest(**request.json)
+        # API token flow
+        if data.get('api_token'):
+            token_val = data.get('api_token')
+            global API_TOKEN, stake_client
+            API_TOKEN = token_val
+            # persist token
+            try:
+                with sqlite3.connect(DB_PATH) as conn:
+                    conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('api_token', ?)", (API_TOKEN,))
+            except Exception:
+                logger.exception('Failed to persist api_token')
+
+            if api_available:
+                try:
+                    stake_client = Stake(API_TOKEN)
+                except Exception:
+                    stake_client = None
+            token = jwt.encode({'user': 'api_user', 'exp': time.time() + 86400}, app.config['SECRET_KEY'], algorithm="HS256")
+            return jsonify({'success': True, 'token': token, 'note': 'API token registered locally.'})
+
+        # Stake username/password flow (if the Stake wrapper supports a login method)
+        if data.get('stake_username') and data.get('stake_password'):
+            if not api_available:
+                return jsonify({'success': False, 'error': 'Stake API wrapper not available on server.'}), 400
+            try:
+                # Try to use a login method if provided by the wrapper
+                if hasattr(Stake, 'login'):
+                    sc = Stake()
+                    res = sc.login(data.get('stake_username'), data.get('stake_password'))
+                    # if login returns a token, store it
+                    if isinstance(res, str):
+                        API_TOKEN = res
+                        stake_client = Stake(API_TOKEN)
+                        with sqlite3.connect(DB_PATH) as conn:
+                            conn.execute("INSERT OR REPLACE INTO settings (key, value) VALUES ('api_token', ?)", (API_TOKEN,))
+                    token = jwt.encode({'user': data.get('stake_username'), 'exp': time.time() + 86400}, app.config['SECRET_KEY'], algorithm="HS256")
+                    return jsonify({'success': True, 'token': token})
+                else:
+                    return jsonify({'success': False, 'error': 'Stake wrapper does not support username/password login.'}), 400
+            except Exception as e:
+                logger.exception('Stake login failed')
+                return jsonify({'success': False, 'error': f'Stake login failed: {e}'}), 500
+
+        # Fallback: local username/password
+        req = LoginRequest(**data)
         valid_user = os.getenv('GORK_USERNAME', 'admin')
-        valid_pass = os.getenv('GORK_PASSWORD', 'gork2026')
-        
+        valid_pass = os.getenv('GORK_PASSWORD', 'admin123')
         if req.username == valid_user and req.password == valid_pass:
             token = jwt.encode({'user': valid_user, 'exp': time.time() + 86400}, app.config['SECRET_KEY'], algorithm="HS256")
             return jsonify({'success': True, 'token': token})
@@ -388,6 +437,119 @@ def get_template(name):
 def get_params():
     # In a real app, parse the custom_strategy for a PARAMS dict
     return jsonify({'base_mult': 1.0, 'risk_factor': 0.5})
+
+
+# Web Terminal Endpoints
+@app.route('/terminal')
+@token_required
+def terminal_page():
+    return render_template('terminal.html')
+
+
+@app.route('/terminal/exec', methods=['POST'])
+@token_required
+def terminal_exec():
+    data = request.json or {}
+    cmd = data.get('cmd')
+    if cmd == 'show':
+        with state_lock:
+            return jsonify(state)
+    if cmd == 'run':
+        res = terminal.run_strategy()
+        return jsonify({'result': res})
+    if cmd == 'load':
+        path = data.get('path')
+        code = data.get('code')
+        if code:
+            with open(CUSTOM_STRAT_PATH, 'w', encoding='utf-8') as f:
+                f.write(code)
+            terminal.load_strategy(CUSTOM_STRAT_PATH)
+            return jsonify({'success': True, 'msg': 'Saved and loaded custom strategy.'})
+        if path:
+            terminal.load_strategy(path)
+            return jsonify({'success': True, 'msg': f'Loaded {path}'})
+        return jsonify({'error': 'No path or code provided'}), 400
+    if cmd == 'get_code':
+        try:
+            with open(CUSTOM_STRAT_PATH, 'r', encoding='utf-8') as f:
+                return jsonify({'code': f.read()})
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+    return jsonify({'error': 'Unknown command'}), 400
+
+
+# SocketIO handlers for interactive terminal
+@socketio.on('connect')
+def _socket_connect(auth):
+    token = None
+    if isinstance(auth, dict):
+        token = auth.get('token') or auth.get('auth')
+    if not token:
+        return False
+    try:
+        jwt.decode(token, app.config['SECRET_KEY'], algorithms=["HS256"])
+    except Exception:
+        return False
+    socketio.emit('output', {'msg': 'Terminal socket connected'})
+
+
+@socketio.on('cmd')
+def _socket_cmd(data):
+    sid = request.sid
+    if not check_rate_limit(sid):
+        socketio.emit('output', {'msg': 'Rate limit exceeded, slow down.'}, to=sid)
+        return
+    try:
+        cmd = (data or {}).get('cmd')
+        if cmd == 'show':
+            with state_lock:
+                socketio.emit('output', {'msg': json.dumps(state, default=str)}, to=sid)
+            return
+        if cmd == 'run':
+            res = terminal.run_strategy()
+            socketio.emit('output', {'msg': f'Run result: {res}'}, to=sid)
+            return
+        if cmd == 'get_code':
+            code = terminal.get_code()
+            socketio.emit('output', {'msg': code or 'No code available'}, to=sid)
+            return
+        if cmd == 'load':
+            code = data.get('code')
+            path = data.get('path')
+            if code:
+                ok = terminal.save_code(code)
+                socketio.emit('output', {'msg': 'Saved code' if ok else 'Save failed'}, to=sid)
+                return
+            if path:
+                terminal.load_strategy(path)
+                socketio.emit('output', {'msg': f'Loaded {path}'}, to=sid)
+                return
+            socketio.emit('output', {'msg': 'No path or code provided'}, to=sid)
+            return
+        if cmd == 'history':
+            socketio.emit('output', {'msg': json.dumps(terminal.get_history(), default=str)}, to=sid)
+            return
+        if cmd == 'exec':
+            code = data.get('code', '')
+
+            def stream_cb(tag, text):
+                socketio.emit('output', {'msg': f'[{tag}] {text}'}, to=sid)
+
+            # run in background and stream
+            socketio.start_background_task(lambda: _run_and_stream(code, stream_cb))
+            return
+        socketio.emit('output', {'msg': f'Unknown cmd: {cmd}'}, to=sid)
+    except Exception as e:
+        socketio.emit('output', {'msg': f'Error: {e}'}, to=sid)
+
+
+def _run_and_stream(code, stream_cb):
+    # use subprocess runner and forward outputs via stream_cb
+    try:
+        rc, summary = terminal.exec_code_subprocess(code, timeout=8.0, stream_callback=stream_cb)
+        stream_cb('sys', summary + f' (rc={rc})')
+    except Exception as e:
+        stream_cb('err', str(e))
 
 # Prediction Routes
 @app.route('/api/dice/predict', methods=['POST'])
@@ -576,4 +738,8 @@ Rules:
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001, debug=False)
+    # Use SocketIO runner when available so websockets work
+    try:
+        socketio.run(app, host='0.0.0.0', port=5001, debug=False)
+    except Exception:
+        app.run(host='0.0.0.0', port=5001, debug=False)
